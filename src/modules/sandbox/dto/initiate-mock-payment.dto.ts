@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsString, IsUrl, Matches } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsString,
+  IsUrl,
+  Matches,
+} from 'class-validator';
 
 export class InitiateMockPaymentDto {
   @ApiProperty({
@@ -12,7 +18,10 @@ export class InitiateMockPaymentDto {
   })
   phoneNumber!: string;
 
-  @ApiProperty({ example: 1001, description: 'Amount in RWF (1001=success, 3003=insufficient funds)' })
+  @ApiProperty({
+    example: 1001,
+    description: 'Amount in RWF (1001=success, 3003=insufficient funds)',
+  })
   @IsNumber()
   @IsNotEmpty()
   amount!: number;

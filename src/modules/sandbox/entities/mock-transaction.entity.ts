@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  Index,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { ApiKeyEntity } from '../../auth/entities/api-key.entity';
 
 @Entity('sandbox_mock_transactions')
@@ -22,7 +30,12 @@ export class MockTransactionEntity {
   @Column({ name: 'status', type: 'varchar', length: 30, default: 'PENDING' })
   status!: string;
 
-  @Column({ name: 'failure_reason', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'failure_reason',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   failureReason!: string | null;
 
   @Column({ name: 'webhook_url', type: 'varchar', length: 500 })
@@ -34,4 +47,7 @@ export class MockTransactionEntity {
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
+
+  @Column({ name: 'completed_at', type: 'timestamptz', nullable: true })
+  completedAt!: Date | null;
 }

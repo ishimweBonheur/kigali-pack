@@ -8,6 +8,7 @@ import {
   HttpStatus,
   HttpCode,
   BadRequestException,
+  Req,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -17,30 +18,46 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
+import { TierThrottlerGuard } from '../../common/guards/tier-throttler.guard';
 import { CalculateTaxDto } from './dto/calculate-tax.dto';
 
 @ApiTags('Compliance')
 @ApiBearerAuth()
 @Controller('v1/compliance')
-@UseGuards(ApiKeyGuard)
+@UseGuards(ApiKeyGuard, TierThrottlerGuard)
 export class KycController {
   @Get('nida/mock/:nationalId')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Mock NIDA identity lookup by national ID' })
-  @ApiParam({ name: 'nationalId', example: '1199780123456789' })
-  @ApiResponse({ status: 200, description: 'Mock identity profile returned' })
-  async runMockKycProfileLookup(@Param('nationalId') nationalId: string) {
+  @ApiParam({ name: 'nationalId', example: '1200780064278123' })
+  @ApiResponse({ status: 200, description: 'Contextual sandbox identity profile returned' })
+  async runMockKycProfileLookup(@Param('nationalId') nationalId: string, @Req() req: any) {
+    // Sanitize any whitespace padding or hidden line breaks from input source parameters
     const scrubbedId = nationalId.replace(/\s+/g, '');
 
-    const nidaFormatPattern = /^1(19|20)\d{2}[78]\d{7}\d{2}$/;
+    // Refactored production-grade NIDA 16-digit regex matcher
+    // 1 | BirthYear(4) | Gender(1) | SerialTracking(8) | Checksum(2) = 16 digits
+    const nidaFormatPattern = /^1(19|20)\d{2}[78]\d{8}\d{2}$/;
+    
     if (!nidaFormatPattern.test(scrubbedId)) {
       throw new BadRequestException(
-        'Malformed National ID parameter string. Pattern violation.',
+        `Malformed National ID parameter string. Pattern violation. Input length: ${scrubbedId.length}`,
       );
     }
 
-    const balancingIndicator = parseInt(scrubbedId.slice(-2), 10);
-    const resolvedGender = balancingIndicator % 2 === 0 ? 'FEMALE' : 'MALE';
+    // Extract the developer account context attached to the incoming API token
+    const developerAccount = req['developer'];
+    if (!developerAccount) {
+      throw new BadRequestException('Security Context Error: Unable to identify active developer payload.');
+    }
+
+    // Extract structural gender value mapping directly from position 5 index byte
+    // NIDA National Standard Conventions: 8 = MALE, 7 = FEMALE
+    const genderIdentifierDigit = scrubbedId.charAt(5);
+    const resolvedGender = genderIdentifierDigit === '8' ? 'MALE' : 'FEMALE';
+
+    // Extract birth year embedded directly in the structural footprint of the ID string
+    const embeddedBirthYear = scrubbedId.slice(1, 5);
 
     return {
       queryStatus: 'SUCCESS',
@@ -48,12 +65,14 @@ export class KycController {
       recordFound: true,
       identity: {
         nationalId: scrubbedId,
-        firstName: resolvedGender === 'FEMALE' ? 'Divine' : 'Christian',
-        lastName: resolvedGender === 'FEMALE' ? 'Uwase' : 'Bizimana',
+        // Pull down the actual credentials the developer signed up with
+        firstName: developerAccount.developerName.split(' ')[0] || 'Developer',
+        lastName: developerAccount.developerName.split(' ').slice(1).join(' ') || 'Profile',
         gender: resolvedGender,
-        birthYear: scrubbedId.slice(1, 5),
-        civilStatus: 'SINGLE',
-        placeOfIssue: 'Kigali City, Nyarugenge District',
+        birthYear: embeddedBirthYear,
+        // Conditional handling: display structural null fields if not explicitly configured in profile
+        civilStatus: null,
+        placeOfIssue: null,
       },
       attestationToken: 'jwt_mock_nida_attestation_signature_hash_stream',
     };
@@ -93,7 +112,9 @@ export class KycController {
 
   @Get('boilerplates/scaffold')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Retrieve recommended project boilerplate template' })
+  @ApiOperation({
+    summary: 'Retrieve recommended project boilerplate template',
+  })
   async retrieveBoilerplateTemplateStructure() {
     return {
       templateName: 'NestJS-NextJS-Momo-Stack',

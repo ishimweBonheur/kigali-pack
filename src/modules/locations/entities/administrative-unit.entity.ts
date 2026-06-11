@@ -1,33 +1,62 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+  Index,
+} from 'typeorm';
+
+export type AdministrativeUnitLevel =
+  | 'PROVINCE'
+  | 'DISTRICT'
+  | 'SECTOR'
+  | 'CELL'
+  | 'VILLAGE';
+
+export const ADMINISTRATIVE_UNIT_LEVELS: readonly AdministrativeUnitLevel[] = [
+  'PROVINCE',
+  'DISTRICT',
+  'SECTOR',
+  'CELL',
+  'VILLAGE',
+] as const;
 
 @Entity('administrative_units')
 @Index(['level', 'isActive'])
 export class AdministrativeUnitEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ name: 'name', type: 'varchar', length: 150 })
   @Index()
-  name: string;
+  name!: string;
 
   @Column({
     name: 'level',
     type: 'enum',
-    enum: ['PROVINCE', 'DISTRICT', 'SECTOR', 'CELL', 'VILLAGE'],
+    enum: ADMINISTRATIVE_UNIT_LEVELS,
   })
-  level: 'PROVINCE' | 'DISTRICT' | 'SECTOR' | 'CELL' | 'VILLAGE';
+  level!: AdministrativeUnitLevel;
 
   @Column({ name: 'code', type: 'varchar', length: 50, nullable: true })
-  @Index({ unique: true, where: "code IS NOT NULL" })
-  code: string;
+  @Index({ unique: true, where: 'code IS NOT NULL' })
+  code!: string | null;
 
   @Column({ name: 'is_active', type: 'boolean', default: true })
-  isActive: boolean;
+  isActive!: boolean;
 
-  @ManyToOne(() => AdministrativeUnitEntity, (unit) => unit.children, { onDelete: 'CASCADE', nullable: true })
+  @Column({ name: 'parent_id', type: 'uuid', nullable: true })
+  parentId!: string | null;
+
+  @ManyToOne(() => AdministrativeUnitEntity, (unit) => unit.children, {
+    onDelete: 'CASCADE',
+    nullable: true,
+  })
   @JoinColumn({ name: 'parent_id' })
-  parent: AdministrativeUnitEntity;
+  parent!: AdministrativeUnitEntity | null;
 
   @OneToMany(() => AdministrativeUnitEntity, (unit) => unit.parent)
-  children: AdministrativeUnitEntity[];
+  children!: AdministrativeUnitEntity[];
 }

@@ -1,0 +1,195 @@
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { ApiUsageEntity } from './entities/api-usage.entity';
+import { ApiLogEntity } from './entities/api-log.entity';
+import { AnalyticsQueryDto } from '../../common/dto/pagination-query.dto';
+
+@Injectable()
+export class AnalyticsService {
+  constructor(
+    @InjectRepository(ApiUsageEntity)
+    private readonly usageRepo: Repository<ApiUsageEntity>,
+    @InjectRepository(ApiLogEntity)
+    private readonly logRepo: Repository<ApiLogEntity>,
+  ) {}
+
+  private defaultDateRange(query: AnalyticsQueryDto): { from: string; to: string } {
+    const to = query.to ?? new Date().toISOString().slice(0, 10);
+    const fromDate = new Date();
+    fromDate.setDate(fromDate.getDate() - 30);
+    const from = query.from ?? fromDate.toISOString().slice(0, 10);
+    return { from, to };
+  }
+
+  async getUsage(apiKeyId: string, query: AnalyticsQueryDto) {
+    const { from, to } = this.defaultDateRange(query);
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const offset = (page - 1) * limit;
+
+    const [rows, total] = await this.usageRepo
+      .createQueryBuilder('usage')
+      .where('usage.api_key_id = :apiKeyId', { apiKeyId })
+      .andWhere('usage.usage_date BETWEEN :from AND :to', { from, to })
+      .orderBy('usage.usage_date', 'DESC')
+      .addOrderBy('usage.requests', 'DESC')
+      .skip(offset)
+      .take(limit)
+      .getManyAndCount();
+
+    const summary = await this.usageRepo
+      .createQueryBuilder('usage')
+      .select('COALESCE(SUM(usage.requests), 0)', 'totalRequests')
+      .addSelect('COALESCE(SUM(usage.error_count), 0)', 'totalErrors')
+      .where('usage.api_key_id = :apiKeyId', { apiKeyId })
+      .andWhere('usage.usage_date BETWEEN :from AND :to', { from, to })
+      .getRawOne<{ totalRequests: string; totalErrors: string }>();
+
+    return {
+      period: { from, to },
+      summary: {
+        totalRequests: Number(summary?.totalRequests ?? 0),
+        totalErrors: Number(summary?.totalErrors ?? 0),
+      },
+      pagination: { page, limit, total },
+      data: rows.map((row) => ({
+        endpoint: row.endpoint,
+        date: row.usageDate,
+        requests: row.requests,
+        averageLatencyMs: Number(row.averageLatencyMs),
+        errorCount: row.errorCount,
+      })),
+    };
+  }
+
+  async getErrors(apiKeyId: string, query: AnalyticsQueryDto) {
+    const { from, to } = this.defaultDateRange(query);
+
+    const dailyErrors = await this.usageRepo
+      .createQueryBuilder('usage')
+      .select('usage.usage_date', 'date')
+      .addSelect('SUM(usage.error_count)', 'errorCount')
+      .addSelect('SUM(usage.requests)', 'totalRequests')
+      .where('usage.api_key_id = :apiKeyId', { apiKeyId })
+      .andWhere('usage.usage_date BETWEEN :from AND :to', { from, to })
+      .groupBy('usage.usage_date')
+      .orderBy('usage.usage_date', 'DESC')
+      .getRawMany<{ date: string; errorCount: string; totalRequests: string }>();
+
+    const recentErrors = await this.logRepo
+      .createQueryBuilder('log')
+      .where('log.api_key_id = :apiKeyId', { apiKeyId })
+      .andWhere('log.status_code >= 400')
+      .andWhere('log.timestamp::date BETWEEN :from::date AND :to::date', {
+        from,
+        to,
+      })
+      .orderBy('log.timestamp', 'DESC')
+      .limit(50)
+      .getMany();
+
+    return {
+      period: { from, to },
+      dailyBreakdown: dailyErrors.map((row) => ({
+        date: row.date,
+        errorCount: Number(row.errorCount),
+        totalRequests: Number(row.totalRequests),
+        errorRate:
+          Number(row.totalRequests) > 0
+            ? Number(row.errorCount) / Number(row.totalRequests)
+            : 0,
+      })),
+      recentErrors: recentErrors.map((log) => ({
+        endpoint: log.endpoint,
+        method: log.method,
+        statusCode: log.statusCode,
+        responseTimeMs: log.responseTimeMs,
+        timestamp: log.timestamp,
+      })),
+    };
+  }
+
+  async getLatency(apiKeyId: string, query: AnalyticsQueryDto) {
+    const { from, to } = this.defaultDateRange(query);
+
+    const endpointLatency = await this.usageRepo
+      .createQueryBuilder('usage')
+      .select('usage.endpoint', 'endpoint')
+      .addSelect('AVG(usage.average_latency_ms)', 'averageLatencyMs')
+      .addSelect('SUM(usage.requests)', 'requests')
+      .where('usage.api_key_id = :apiKeyId', { apiKeyId })
+      .andWhere('usage.usage_date BETWEEN :from AND :to', { from, to })
+      .groupBy('usage.endpoint')
+      .orderBy('AVG(usage.average_latency_ms)', 'DESC')
+      .getRawMany<{
+        endpoint: string;
+        averageLatencyMs: string;
+        requests: string;
+      }>();
+
+    const dailyLatency = await this.usageRepo
+      .createQueryBuilder('usage')
+      .select('usage.usage_date', 'date')
+      .addSelect(
+        'SUM(usage.average_latency_ms * usage.requests) / NULLIF(SUM(usage.requests), 0)',
+        'weightedAverageMs',
+      )
+      .where('usage.api_key_id = :apiKeyId', { apiKeyId })
+      .andWhere('usage.usage_date BETWEEN :from AND :to', { from, to })
+      .groupBy('usage.usage_date')
+      .orderBy('usage.usage_date', 'ASC')
+      .getRawMany<{ date: string; weightedAverageMs: string | null }>();
+
+    return {
+      period: { from, to },
+      byEndpoint: endpointLatency.map((row) => ({
+        endpoint: row.endpoint,
+        averageLatencyMs: Math.round(Number(row.averageLatencyMs)),
+        requests: Number(row.requests),
+      })),
+      dailyTrend: dailyLatency.map((row) => ({
+        date: row.date,
+        averageLatencyMs: Math.round(Number(row.weightedAverageMs ?? 0)),
+      })),
+    };
+  }
+
+  async getEndpoints(apiKeyId: string, query: AnalyticsQueryDto) {
+    const { from, to } = this.defaultDateRange(query);
+
+    const endpoints = await this.usageRepo
+      .createQueryBuilder('usage')
+      .select('usage.endpoint', 'endpoint')
+      .addSelect('SUM(usage.requests)', 'requests')
+      .addSelect('SUM(usage.error_count)', 'errors')
+      .addSelect(
+        'SUM(usage.average_latency_ms * usage.requests) / NULLIF(SUM(usage.requests), 0)',
+        'averageLatencyMs',
+      )
+      .where('usage.api_key_id = :apiKeyId', { apiKeyId })
+      .andWhere('usage.usage_date BETWEEN :from AND :to', { from, to })
+      .groupBy('usage.endpoint')
+      .orderBy('SUM(usage.requests)', 'DESC')
+      .getRawMany<{
+        endpoint: string;
+        requests: string;
+        errors: string;
+        averageLatencyMs: string | null;
+      }>();
+
+    return {
+      period: { from, to },
+      endpoints: endpoints.map((row) => ({
+        endpoint: row.endpoint,
+        requests: Number(row.requests),
+        errors: Number(row.errors),
+        averageLatencyMs: Math.round(Number(row.averageLatencyMs ?? 0)),
+        successRate:
+          Number(row.requests) > 0
+            ? (Number(row.requests) - Number(row.errors)) / Number(row.requests)
+            : 1,
+      })),
+    };
+  }
+}

@@ -1,4 +1,12 @@
-import { Controller, Get, Query, UseGuards, HttpStatus, HttpCode } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  UseGuards,
+  UseInterceptors,
+  HttpStatus,
+  HttpCode,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -9,11 +17,13 @@ import {
 } from '@nestjs/swagger';
 import { AdministrativeUnitEntity } from './entities/administrative-unit.entity';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
+import { TierThrottlerGuard } from '../../common/guards/tier-throttler.guard';
+import { LocationsCacheInterceptor } from '../../common/cache/locations-cache.interceptor';
 
 @ApiTags('Locations')
 @ApiBearerAuth()
 @Controller('v1/locations')
-@UseGuards(ApiKeyGuard)
+@UseGuards(ApiKeyGuard, TierThrottlerGuard)
 export class LocationsController {
   constructor(
     @InjectRepository(AdministrativeUnitEntity)
@@ -22,6 +32,7 @@ export class LocationsController {
 
   @Get('root-provinces')
   @HttpCode(HttpStatus.OK)
+  @UseInterceptors(LocationsCacheInterceptor)
   @ApiOperation({ summary: 'List all active root provinces' })
   async getProvinces() {
     return await this.locationRepo.find({
@@ -43,7 +54,9 @@ export class LocationsController {
 
   @Get('normalize')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Normalize a raw address string against NISR hierarchy' })
+  @ApiOperation({
+    summary: 'Normalize a raw address string against NISR hierarchy',
+  })
   @ApiQuery({ name: 'rawAddress', required: false, type: String })
   async normalizeInputAddress(@Query('rawAddress') rawAddress: string) {
     if (!rawAddress) return { matchFound: false, cleanText: '' };
@@ -67,7 +80,11 @@ export class LocationsController {
       if (match) {
         return {
           matchFound: true,
-          standardizedAddress: `${match.name}, ${match.parent ? match.parent.name : ''}`.replace( /,\s*$/,   '',    ),
+          standardizedAddress:
+            `${match.name}, ${match.parent ? match.parent.name : ''}`.replace(
+              /,\s*$/,
+              '',
+            ),
           metadata: { id: match.id, level: match.level, code: match.code },
         };
       }

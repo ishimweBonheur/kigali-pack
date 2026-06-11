@@ -4,6 +4,7 @@ import {
   Get,
   Body,
   Param,
+  Query,
   UseGuards,
   HttpStatus,
   HttpCode,
@@ -23,28 +24,33 @@ import {
 import { firstValueFrom } from 'rxjs';
 import { MockTransactionEntity } from './entities/mock-transaction.entity';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
+import { TierThrottlerGuard } from '../../common/guards/tier-throttler.guard';
 import { InitiateMockPaymentDto } from './dto/initiate-mock-payment.dto';
-import { ApiKeyEntity } from '../auth/entities/api-key.entity';
-
-interface AuthenticatedRequest {
-  developer: ApiKeyEntity;
-}
+import type { AuthenticatedRequest } from '../../common/types/authenticated-request.interface';
+import { SandboxHistoryService } from './sandbox-history.service';
+import { WebhookService } from '../webhooks/webhook.service';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 
 @ApiTags('Sandbox Payments')
 @ApiBearerAuth()
 @Controller('v1/sandbox/payments')
-@UseGuards(ApiKeyGuard)
+@UseGuards(ApiKeyGuard, TierThrottlerGuard)
 export class SandboxController {
   constructor(
     @InjectRepository(MockTransactionEntity)
     private readonly txRepo: Repository<MockTransactionEntity>,
     private readonly httpService: HttpService,
+    private readonly historyService: SandboxHistoryService,
+    private readonly webhookService: WebhookService,
   ) {}
 
   @Post('charge')
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({ summary: 'Initiate a mock telecom payment charge' })
-  @ApiResponse({ status: 202, description: 'Transaction accepted for async processing' })
+  @ApiResponse({
+    status: 202,
+    description: 'Transaction accepted for async processing',
+  })
   async runMockChargeEngine(
     @Body() dto: InitiateMockPaymentDto,
     @Req() req: AuthenticatedRequest,
@@ -78,9 +84,21 @@ export class SandboxController {
       failureReason: negativeCode,
       webhookUrl: dto.webhookUrl,
       clientReference: dto.clientReference,
+      completedAt: targetStatus === 'FAILED' ? new Date() : null,
     });
 
     const savedTx = await this.txRepo.save(transactionRecord);
+
+    if (targetStatus === 'FAILED') {
+      void this.webhookService
+        .dispatchEventForDeveloper(activeDeveloper.id, 'payment.failed', {
+          transactionId: savedTx.id,
+          amount: Number(savedTx.amount),
+          status: targetStatus,
+          error: negativeCode,
+        })
+        .catch(() => undefined);
+    }
 
     setTimeout(async () => {
       const payloadDelivery = {
@@ -101,12 +119,24 @@ export class SandboxController {
         );
 
         if (targetStatus === 'SUCCESS') {
-          await this.txRepo.update(savedTx.id, { status: 'SUCCESS' });
+          await this.txRepo.update(savedTx.id, {
+            status: 'SUCCESS',
+            completedAt: new Date(),
+          });
+          void this.webhookService
+            .dispatchEventForDeveloper(
+              activeDeveloper.id,
+              'payment.success',
+              payloadDelivery,
+            )
+            .catch(() => undefined);
         }
       } catch {
-        console.error(
-          `Webhook pipeline delivery drop out for transaction: ${savedTx.id}. Target offline.`,
-        );
+        await this.txRepo.update(savedTx.id, {
+          status: 'FAILED',
+          failureReason: 'ERR_WEBHOOK_DELIVERY_FAILED',
+          completedAt: new Date(),
+        });
       }
     }, 3000);
 
@@ -117,6 +147,27 @@ export class SandboxController {
       simulatedGateway: targetGateway,
       checkStatusEndpoint: `/v1/sandbox/payments/status/${savedTx.id}`,
     };
+  }
+
+  @Get('history')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'List sandbox payment transaction history' })
+  async listHistory(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: PaginationQueryDto,
+  ) {
+    return this.historyService.listHistory(req.developer.id, query);
+  }
+
+  @Get('history/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get a single sandbox transaction by ID' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  async getHistoryItem(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    return this.historyService.getById(req.developer.id, id);
   }
 
   @Get('status/:transactionId')

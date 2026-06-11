@@ -96,7 +96,9 @@ export class InitialSchema1730000000000 implements MigrationInterface {
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP TABLE IF EXISTS "sandbox_mock_transactions"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "administrative_units"`);
-    await queryRunner.query(`DROP TYPE IF EXISTS "administrative_units_level_enum"`);
+    await queryRunner.query(
+      `DROP TYPE IF EXISTS "administrative_units_level_enum"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "developer_api_logs"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "developer_api_keys"`);
   }

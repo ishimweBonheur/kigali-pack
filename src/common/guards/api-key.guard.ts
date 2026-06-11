@@ -8,6 +8,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ApiKeyEntity } from '../../modules/auth/entities/api-key.entity';
 import { ApiLogEntity } from '../../modules/analytics/entities/api-log.entity';
+import { ApiKeyService } from '../../modules/auth/api-key.service';
+import { UsageMeteringService } from '../../modules/analytics/usage-metering.service';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -17,6 +19,8 @@ export class ApiKeyGuard implements CanActivate {
     private readonly apiKeyRepo: Repository<ApiKeyEntity>,
     @InjectRepository(ApiLogEntity)
     private readonly apiLogRepo: Repository<ApiLogEntity>,
+    private readonly apiKeyService: ApiKeyService,
+    private readonly usageMeteringService: UsageMeteringService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -24,61 +28,63 @@ export class ApiKeyGuard implements CanActivate {
     const response = context.switchToHttp().getResponse();
     const authHeader = request.headers['authorization'];
 
-    console.log('🔑 Raw Auth Header:', authHeader);
-
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('❌ Missing or malformed auth header');
       throw new UnauthorizedException(
         'Access Denied: Missing or malformed credentials.',
       );
     }
 
     const rawToken = authHeader.split(' ')[1];
-    console.log('🔑 Raw Token:', rawToken);
-
-    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
-    console.log('🔒 Hashed Token:', hashedToken);
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
 
     const trackingStartTime = Date.now();
 
-    console.log('🔍 Querying database for hash:', hashedToken);
     const keyRecord = await this.apiKeyRepo.findOne({
       where: { hashedKey: hashedToken, isActive: true },
     });
 
-    console.log('📋 Key Record Found:', keyRecord ? 'YES' : 'NO');
-    if (keyRecord) {
-      console.log('👤 Developer:', keyRecord.developerName);
-      console.log('🏷️ Tier:', keyRecord.tier);
-    }
-
-    if (!keyRecord) {
-      console.log('❌ No matching key record found');
+    if (!keyRecord || !this.apiKeyService.isKeyValid(keyRecord)) {
       throw new UnauthorizedException(
-        'Access Denied: Invalid developer token credentials.',
+        'Access Denied: Invalid, expired, or revoked developer token credentials.',
       );
     }
 
     request['developer'] = keyRecord;
 
+    void this.apiKeyService.touchLastUsed(keyRecord.id).catch(() => {
+      /* non-blocking last-used update */
+    });
+
     response.on('finish', async () => {
       const executionDurationMs = Date.now() - trackingStartTime;
+      const endpoint = request.route ? request.route.path : request.url;
       try {
         const logMetricsRecord = this.apiLogRepo.create({
           apiKey: keyRecord,
-          endpoint: request.route ? request.route.path : request.url,
+          endpoint,
           method: request.method,
           statusCode: response.statusCode,
           responseTimeMs: executionDurationMs,
         });
         await this.apiLogRepo.save(logMetricsRecord);
-        console.log('📊 Telemetry logged successfully');
-      } catch (logWriteError) {
-        console.error('Telemetry logging failure safely caught:', logWriteError);
+        void this.usageMeteringService
+          .recordRequest(
+            keyRecord.id,
+            endpoint,
+            executionDurationMs,
+            response.statusCode,
+          )
+          .catch(() => {
+            /* non-blocking usage metering */
+          });
+      } catch {
+        /* telemetry failures must not affect the request */
       }
     });
 
-    console.log('✅ Authentication successful');
     return true;
   }
 }
