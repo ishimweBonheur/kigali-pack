@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ApiKeyEntity } from '../../modules/auth/entities/api-key.entity';
@@ -19,20 +24,39 @@ export class ApiKeyGuard implements CanActivate {
     const response = context.switchToHttp().getResponse();
     const authHeader = request.headers['authorization'];
 
+    console.log('🔑 Raw Auth Header:', authHeader);
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Access Denied: Missing or malformed credentials.');
+      console.log('❌ Missing or malformed auth header');
+      throw new UnauthorizedException(
+        'Access Denied: Missing or malformed credentials.',
+      );
     }
 
     const rawToken = authHeader.split(' ')[1];
+    console.log('🔑 Raw Token:', rawToken);
+
     const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+    console.log('🔒 Hashed Token:', hashedToken);
+
     const trackingStartTime = Date.now();
 
+    console.log('🔍 Querying database for hash:', hashedToken);
     const keyRecord = await this.apiKeyRepo.findOne({
       where: { hashedKey: hashedToken, isActive: true },
     });
 
+    console.log('📋 Key Record Found:', keyRecord ? 'YES' : 'NO');
+    if (keyRecord) {
+      console.log('👤 Developer:', keyRecord.developerName);
+      console.log('🏷️ Tier:', keyRecord.tier);
+    }
+
     if (!keyRecord) {
-      throw new UnauthorizedException('Access Denied: Invalid developer token credentials.');
+      console.log('❌ No matching key record found');
+      throw new UnauthorizedException(
+        'Access Denied: Invalid developer token credentials.',
+      );
     }
 
     request['developer'] = keyRecord;
@@ -48,11 +72,13 @@ export class ApiKeyGuard implements CanActivate {
           responseTimeMs: executionDurationMs,
         });
         await this.apiLogRepo.save(logMetricsRecord);
+        console.log('📊 Telemetry logged successfully');
       } catch (logWriteError) {
         console.error('Telemetry logging failure safely caught:', logWriteError);
       }
     });
 
+    console.log('✅ Authentication successful');
     return true;
   }
 }
