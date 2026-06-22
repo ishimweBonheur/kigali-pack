@@ -87,3 +87,29 @@ export class AuthResponseDto {
   @ApiProperty()
   email!: string;
 }
+
+export class ForgotPasswordDto {
+  @ApiProperty({ example: 'owner@acme.rw' })
+  @IsEmail()
+  email!: string;
+}
+
+export class ResetPasswordDto {
+  @ApiProperty({ description: 'Password reset token from forgot-password flow' })
+  @IsString()
+  @MinLength(32)
+  token!: string;
+
+  @ApiProperty({ example: 'NewSecurePass123!' })
+  @IsString()
+  @MinLength(8)
+  @MaxLength(128)
+  newPassword!: string;
+}
+
+export class VerifyEmailDto {
+  @ApiProperty({ description: 'Email verification token' })
+  @IsString()
+  @MinLength(32)
+  token!: string;
+}

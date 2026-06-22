@@ -17,6 +17,7 @@ import {
   ApiBearerAuth,
   ApiOperation,
   ApiParam,
+  ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
@@ -48,6 +49,18 @@ export class WebhookController {
   @ApiOperation({ summary: 'List registered webhooks' })
   async list(@Req() req: AuthenticatedRequest) {
     return this.webhookService.list(req.developer);
+  }
+
+  @Post('deliveries/:id/retry')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: 'Manually retry a past webhook delivery attempt' })
+  @ApiParam({ name: 'id', format: 'uuid', description: 'Original delivery ID' })
+  @ApiResponse({ status: 202, description: 'Retry queued for background delivery' })
+  async retryDelivery(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.webhookService.retryDelivery(req.developer, id);
   }
 
   @Patch(':id')

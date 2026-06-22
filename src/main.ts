@@ -56,7 +56,7 @@ async function bootstrap() {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
-        description: 'JWT access token from POST /v1/auth/login',
+        description: 'JWT access token — paste ONLY the accessToken string from login/register (not refreshToken or full JSON)',
       },
       'jwt',
     )

@@ -10,6 +10,7 @@ import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { OrganizationRole } from '../../modules/organizations/entities/organization-member.entity';
 import { JwtPayload } from '../../modules/organizations/organization.service';
+import { extractBearerToken } from '../utils/bearer-token.util';
 
 const ROLE_ALIASES: Partial<Record<OrganizationRole, OrganizationRole[]>> = {
   [OrganizationRole.OWNER]: [
@@ -55,19 +56,22 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
-    const authHeader = request.headers['authorization'];
+    const token = extractBearerToken(request.headers['authorization']);
 
-    if (!authHeader?.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Missing JWT bearer token');
+    if (!token) {
+      throw new UnauthorizedException(
+        'Missing JWT bearer token. Paste only the accessToken value — not the full login JSON.',
+      );
     }
 
-    const token = authHeader.split(' ')[1];
     try {
       const payload = this.jwtService.verify<JwtPayload>(token);
       request.member = payload;
       return true;
     } catch {
-      throw new UnauthorizedException('Invalid or expired JWT token');
+      throw new UnauthorizedException(
+        'Invalid or expired JWT token. Paste only accessToken from POST /v1/auth/login or /v1/auth/register.',
+      );
     }
   }
 }

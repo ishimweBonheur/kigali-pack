@@ -196,6 +196,39 @@ export class WebhookService {
     };
   }
 
+  async retryDelivery(
+    owner: ApiKeyEntity,
+    deliveryId: string,
+  ) {
+    const original = await this.deliveryRepo.findOne({
+      where: { id: deliveryId },
+      relations: { webhook: { apiKey: true } },
+    });
+
+    if (!original || original.webhook.apiKey.id !== owner.id) {
+      throw new NotFoundException(`Delivery ${deliveryId} not found`);
+    }
+
+    const retryDelivery = await this.enqueueDelivery(
+      original.webhook,
+      original.eventType,
+      {
+        ...original.payload,
+        retriedFrom: original.id,
+        retriedAt: new Date().toISOString(),
+      },
+    );
+
+    return {
+      originalDeliveryId: original.id,
+      retryDelivery: this.toDeliveryResponse(
+        retryDelivery,
+        original.webhook.url,
+      ),
+      message: 'Webhook delivery re-queued for outbound HTTP retry',
+    };
+  }
+
   private toDeliveryResponse(
     delivery: WebhookDeliveryEntity,
     webhookUrl: string,

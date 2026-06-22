@@ -16,6 +16,8 @@ import { ApiKeyEntity } from './modules/auth/entities/api-key.entity';
 
 import { RefreshTokenEntity } from './modules/auth/entities/refresh-token.entity';
 
+import { AuthActionTokenEntity } from './modules/auth/entities/auth-action-token.entity';
+
 import { ApiLogEntity } from './modules/analytics/entities/api-log.entity';
 
 import { ApiUsageEntity } from './modules/analytics/entities/api-usage.entity';
@@ -120,6 +122,8 @@ import { LocationsCacheInterceptor } from './common/cache/locations-cache.interc
 
 import { LocationsService } from './modules/locations/locations.service';
 
+import { RraPayrollService } from './modules/kyc/rra-payroll.service';
+
 import { AuditLogService } from './common/audit/audit-log.service';
 
 import { AuditLogInterceptor } from './common/audit/audit-log.interceptor';
@@ -131,6 +135,8 @@ const ENTITIES = [
   ApiKeyEntity,
 
   RefreshTokenEntity,
+
+  AuthActionTokenEntity,
 
   ApiLogEntity,
 
@@ -307,6 +313,8 @@ const ENTITIES = [
     LocationsCacheInterceptor,
 
     LocationsService,
+
+    RraPayrollService,
 
     AuditLogService,
 

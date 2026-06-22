@@ -1,9 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ApiUsageEntity } from './entities/api-usage.entity';
 import { ApiLogEntity } from './entities/api-log.entity';
 import { AnalyticsQueryDto } from '../../common/dto/pagination-query.dto';
+import {
+  ApiLogDetail,
+  ApiLogListItem,
+  ApiLogsQueryDto,
+} from './dto/api-logs.dto';
 
 @Injectable()
 export class AnalyticsService {
@@ -260,6 +265,68 @@ export class AnalyticsService {
             ? (Number(row.requests) - Number(row.errors)) / Number(row.requests)
             : 1,
       })),
+    };
+  }
+
+  async listLogs(apiKeyId: string, query: ApiLogsQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const offset = (page - 1) * limit;
+
+    const qb = this.logRepo
+      .createQueryBuilder('log')
+      .where('log.api_key_id = :apiKeyId', { apiKeyId })
+      .orderBy('log.timestamp', 'DESC');
+
+    if (query.method) {
+      qb.andWhere('log.method = :method', { method: query.method.toUpperCase() });
+    }
+
+    if (query.statusCode) {
+      qb.andWhere('log.status_code = :statusCode', {
+        statusCode: query.statusCode,
+      });
+    }
+
+    qb.skip(offset).take(limit);
+
+    const [logs, total] = await qb.getManyAndCount();
+
+    return {
+      pagination: { page, limit, total },
+      data: logs.map((log) => this.toLogListItem(log)),
+    };
+  }
+
+  async getLogById(apiKeyId: string, logId: string): Promise<ApiLogDetail> {
+    const log = await this.logRepo.findOne({
+      where: { id: logId, apiKey: { id: apiKeyId } },
+      relations: { apiKey: true },
+    });
+
+    if (!log) {
+      throw new NotFoundException(`Log record ${logId} not found`);
+    }
+
+    return {
+      ...this.toLogListItem(log),
+      apiKeyId: log.apiKey.id,
+    };
+  }
+
+  private toLogListItem(log: ApiLogEntity): ApiLogListItem {
+    return {
+      id: log.id,
+      method: log.method,
+      routePath: log.endpoint,
+      httpStatusCode: log.statusCode,
+      executionTimeMs: log.responseTimeMs,
+      clientIp: null,
+      maskedPayloadSnapshot: {
+        request: '[REDACTED — request body not persisted]',
+        response: '[REDACTED — response body not persisted]',
+      },
+      createdAt: log.timestamp,
     };
   }
 }

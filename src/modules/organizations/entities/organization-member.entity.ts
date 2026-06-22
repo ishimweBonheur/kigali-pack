@@ -48,6 +48,9 @@ export class OrganizationMemberEntity {
   })
   role!: OrganizationRole;
 
+  @Column({ name: 'email_verified', type: 'boolean', default: false })
+  emailVerified!: boolean;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 }

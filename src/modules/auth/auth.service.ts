@@ -16,14 +16,24 @@ import {
 import { RefreshTokenEntity } from './entities/refresh-token.entity';
 import {
   AuthLoginDto,
+  ForgotPasswordDto,
   LogoutDto,
   RefreshTokenDto,
   RegisterDto,
+  ResetPasswordDto,
+  VerifyEmailDto,
 } from './dto/auth.dto';
+import {
+  AuthActionTokenEntity,
+  AuthActionTokenType,
+} from './entities/auth-action-token.entity';
 import { JwtPayload } from '../organizations/organization.service';
+import { ApiKeyService } from './api-key.service';
 
 const ACCESS_TOKEN_TTL_SECONDS = 900;
 const REFRESH_TOKEN_TTL_DAYS = 7;
+const PASSWORD_RESET_TTL_HOURS = 1;
+const EMAIL_VERIFICATION_TTL_HOURS = 24;
 
 @Injectable()
 export class AuthService {
@@ -34,8 +44,11 @@ export class AuthService {
     private readonly memberRepo: Repository<OrganizationMemberEntity>,
     @InjectRepository(RefreshTokenEntity)
     private readonly refreshTokenRepo: Repository<RefreshTokenEntity>,
+    @InjectRepository(AuthActionTokenEntity)
+    private readonly actionTokenRepo: Repository<AuthActionTokenEntity>,
     private readonly jwtService: JwtService,
     private readonly dataSource: DataSource,
+    private readonly apiKeyService: ApiKeyService,
   ) {}
 
   hashPassword(password: string): string {
@@ -81,6 +94,11 @@ export class AuthService {
       });
       const savedOrg = await orgRepo.save(org);
 
+      await this.apiKeyService.ensureDefaultKeyForOrganization(
+        savedOrg.slug,
+        `${savedOrg.name} — default`,
+      );
+
       const member = memberRepo.create({
         organization: savedOrg,
         email: dto.email.toLowerCase(),
@@ -90,6 +108,12 @@ export class AuthService {
       const savedMember = await memberRepo.save(member);
 
       const tokens = await this.issueTokenPair(savedMember, savedOrg, manager);
+
+      await this.issueActionToken(
+        savedMember,
+        AuthActionTokenType.EMAIL_VERIFICATION,
+        manager,
+      );
 
       return {
         tokens,
@@ -169,6 +193,120 @@ export class AuthService {
     await this.refreshTokenRepo.save(stored);
 
     return { revoked: true };
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const member = await this.memberRepo.findOne({
+      where: { email: dto.email.toLowerCase() },
+    });
+
+    if (member) {
+      const { token } = await this.issueActionToken(
+        member,
+        AuthActionTokenType.PASSWORD_RESET,
+      );
+      return {
+        message:
+          'If an account exists for this email, a password reset link has been sent.',
+        resetToken: token,
+        expiresInHours: PASSWORD_RESET_TTL_HOURS,
+      };
+    }
+
+    return {
+      message:
+        'If an account exists for this email, a password reset link has been sent.',
+    };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const stored = await this.findValidActionToken(
+      dto.token,
+      AuthActionTokenType.PASSWORD_RESET,
+    );
+
+    const member = stored.member;
+    member.passwordHash = this.hashPassword(dto.newPassword);
+    await this.memberRepo.save(member);
+
+    stored.usedAt = new Date();
+    await this.actionTokenRepo.save(stored);
+
+    return {
+      passwordUpdated: true,
+      email: member.email,
+    };
+  }
+
+  async verifyEmail(dto: VerifyEmailDto) {
+    const stored = await this.findValidActionToken(
+      dto.token,
+      AuthActionTokenType.EMAIL_VERIFICATION,
+    );
+
+    const member = stored.member;
+    member.emailVerified = true;
+    await this.memberRepo.save(member);
+
+    stored.usedAt = new Date();
+    await this.actionTokenRepo.save(stored);
+
+    return {
+      emailVerified: true,
+      email: member.email,
+      memberId: member.id,
+    };
+  }
+
+  private async issueActionToken(
+    member: OrganizationMemberEntity,
+    type: AuthActionTokenType,
+    manager?: DataSource['manager'],
+  ): Promise<{ token: string; expiresAt: Date }> {
+    const token = crypto.randomBytes(48).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setHours(
+      expiresAt.getHours() +
+        (type === AuthActionTokenType.PASSWORD_RESET
+          ? PASSWORD_RESET_TTL_HOURS
+          : EMAIL_VERIFICATION_TTL_HOURS),
+    );
+
+    const repo = manager
+      ? manager.getRepository(AuthActionTokenEntity)
+      : this.actionTokenRepo;
+
+    await repo.save(
+      repo.create({
+        member,
+        tokenHash: this.hashToken(token),
+        type,
+        expiresAt,
+        usedAt: null,
+      }),
+    );
+
+    return { token, expiresAt };
+  }
+
+  private async findValidActionToken(
+    rawToken: string,
+    type: AuthActionTokenType,
+  ): Promise<AuthActionTokenEntity> {
+    const stored = await this.actionTokenRepo.findOne({
+      where: {
+        tokenHash: this.hashToken(rawToken),
+        type,
+        usedAt: IsNull(),
+      },
+      relations: { member: true },
+    });
+
+    if (!stored || stored.expiresAt < new Date()) {
+      throw new UnauthorizedException('Invalid or expired token');
+    }
+
+    return stored;
   }
 
   private async issueTokenPair(

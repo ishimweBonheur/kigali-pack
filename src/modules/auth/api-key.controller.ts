@@ -30,7 +30,8 @@ import {
 } from './dto/api-key-response.dto';
 
 @ApiTags('Developer API Keys')
-@ApiBearerAuth()
+@ApiBearerAuth('bearer')
+@ApiBearerAuth('jwt')
 @Controller('v1/developer/api-keys')
 @UseGuards(ApiKeyGuard, TierThrottlerGuard)
 export class ApiKeyController {
@@ -53,7 +54,11 @@ export class ApiKeyController {
 
   @Get()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'List all API keys for the authenticated developer' })
+  @ApiOperation({
+    summary: 'List all API keys for the authenticated developer',
+    description:
+      'Accepts JWT (paste only accessToken) or developer API key (kp_test_...).',
+  })
   @ApiResponse({
     status: 200,
     description: 'List of API keys (hashes are never exposed)',

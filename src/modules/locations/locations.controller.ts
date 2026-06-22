@@ -83,9 +83,12 @@ export class LocationsController {
   @Post('normalize')
   @HttpCode(HttpStatus.OK)
   @UseGuards(ApiKeyGuard, TierThrottlerGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('bearer')
+  @ApiBearerAuth('jwt')
   @ApiOperation({
     summary: 'Normalize a raw address string against NISR hierarchy',
+    description:
+      'Accepts a developer API key (kp_test_...) or JWT access token from POST /v1/auth/login.',
   })
   @ApiResponse({ status: 200, type: ApiSuccessResponseDto })
   async normalizeAddress(@Body() dto: NormalizeAddressDto) {
@@ -129,7 +132,8 @@ export class LocationsController {
   @Get(':parentId/children')
   @HttpCode(HttpStatus.OK)
   @UseGuards(ApiKeyGuard, TierThrottlerGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('bearer')
+  @ApiBearerAuth('jwt')
   @ApiOperation({ summary: 'List child administrative units by parent ID (RESTful)' })
   @ApiParam({ name: 'parentId', format: 'uuid' })
   @ApiResponse({ status: 200, type: ApiSuccessResponseDto })

@@ -7,12 +7,19 @@ import {
 import { Reflector } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { JwtService } from '@nestjs/jwt';
+import * as crypto from 'crypto';
 import { ApiKeyEntity } from '../../modules/auth/entities/api-key.entity';
 import { ApiLogEntity } from '../../modules/analytics/entities/api-log.entity';
 import { ApiKeyService } from '../../modules/auth/api-key.service';
 import { UsageMeteringService } from '../../modules/analytics/usage-metering.service';
+import { OrganizationEntity } from '../../modules/organizations/entities/organization.entity';
+import { JwtPayload } from '../../modules/organizations/organization.service';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
-import * as crypto from 'crypto';
+import {
+  extractBearerToken,
+  isDeveloperApiKey,
+} from '../utils/bearer-token.util';
 
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
@@ -21,8 +28,11 @@ export class ApiKeyGuard implements CanActivate {
     private readonly apiKeyRepo: Repository<ApiKeyEntity>,
     @InjectRepository(ApiLogEntity)
     private readonly apiLogRepo: Repository<ApiLogEntity>,
+    @InjectRepository(OrganizationEntity)
+    private readonly orgRepo: Repository<OrganizationEntity>,
     private readonly apiKeyService: ApiKeyService,
     private readonly usageMeteringService: UsageMeteringService,
+    private readonly jwtService: JwtService,
     private readonly reflector: Reflector,
   ) {}
 
@@ -37,16 +47,28 @@ export class ApiKeyGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
-    const response = context.switchToHttp().getResponse();
     const authHeader = request.headers['authorization'];
+    const rawToken = extractBearerToken(authHeader);
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!rawToken) {
       throw new UnauthorizedException(
-        'Access Denied: Missing or malformed credentials.',
+        'Access Denied: Missing or malformed credentials. Paste only your accessToken (JWT) or API key (kp_test_...) — not the full login JSON.',
       );
     }
 
-    const rawToken = authHeader.split(' ')[1];
+    if (isDeveloperApiKey(rawToken)) {
+      return this.authenticateWithApiKey(context, rawToken);
+    }
+
+    return this.authenticateWithJwt(context, rawToken);
+  }
+
+  private async authenticateWithApiKey(
+    context: ExecutionContext,
+    rawToken: string,
+  ): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
+    const response = context.switchToHttp().getResponse();
     const hashedToken = crypto
       .createHash('sha256')
       .update(rawToken)
@@ -64,7 +86,66 @@ export class ApiKeyGuard implements CanActivate {
       );
     }
 
-    request['developer'] = keyRecord;
+    return this.attachDeveloperContext(
+      request,
+      response,
+      keyRecord,
+      trackingStartTime,
+    );
+  }
+
+  private async authenticateWithJwt(
+    context: ExecutionContext,
+    rawToken: string,
+  ): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
+    const response = context.switchToHttp().getResponse();
+    const trackingStartTime = Date.now();
+
+    let payload: JwtPayload;
+    try {
+      payload = this.jwtService.verify<JwtPayload>(rawToken);
+    } catch {
+      throw new UnauthorizedException(
+        'Access Denied: Invalid or expired JWT. Paste only the accessToken value from login — not refreshToken or the full JSON response.',
+      );
+    }
+
+    request.member = payload;
+
+    const org = await this.orgRepo.findOne({ where: { id: payload.orgId } });
+    if (!org) {
+      throw new UnauthorizedException('Access Denied: Organization not found.');
+    }
+
+    const keyRecord = await this.apiKeyService.ensureDefaultKeyForOrganization(
+      org.slug,
+      `${org.name} — default`,
+    );
+
+    return this.attachDeveloperContext(
+      request,
+      response,
+      keyRecord,
+      trackingStartTime,
+    );
+  }
+
+  private attachDeveloperContext(
+    request: {
+      route?: { path: string };
+      url: string;
+      method: string;
+      developer?: ApiKeyEntity;
+    },
+    response: {
+      statusCode: number;
+      on: (event: string, listener: () => void) => void;
+    },
+    keyRecord: ApiKeyEntity,
+    trackingStartTime: number,
+  ): boolean {
+    request.developer = keyRecord;
 
     void this.apiKeyService.touchLastUsed(keyRecord.id).catch(() => {
       /* non-blocking last-used update */

@@ -21,43 +21,41 @@ import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { TierThrottlerGuard } from '../../common/guards/tier-throttler.guard';
 import { Public } from '../../common/decorators/public.decorator';
 import { CalculateTaxDto } from './dto/calculate-tax.dto';
+import { RraPayrollService } from './rra-payroll.service';
+import {
+  ApiErrorResponseDto,
+  ApiSuccessResponseDto,
+} from '../../common/dto/api-response.dto';
+import type { AuthenticatedRequest } from '../../common/types/authenticated-request.interface';
 
 @ApiTags('Compliance')
 @ApiBearerAuth()
 @Controller('v1/compliance')
 @UseGuards(ApiKeyGuard, TierThrottlerGuard)
 export class KycController {
+  constructor(private readonly rraPayrollService: RraPayrollService) {}
+
   @Get('nida/mock/:nationalId')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Mock NIDA identity lookup by national ID' })
   @ApiParam({ name: 'nationalId', example: '1200780064278123' })
   @ApiResponse({ status: 200, description: 'Contextual sandbox identity profile returned' })
-  async runMockKycProfileLookup(@Param('nationalId') nationalId: string, @Req() req: any) {
-    // Sanitize any whitespace padding or hidden line breaks from input source parameters
+  async runMockKycProfileLookup(
+    @Param('nationalId') nationalId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const scrubbedId = nationalId.replace(/\s+/g, '');
-
-    // Refactored production-grade NIDA 16-digit regex matcher
-    // 1 | BirthYear(4) | Gender(1) | SerialTracking(8) | Checksum(2) = 16 digits
     const nidaFormatPattern = /^1(19|20)\d{2}[78]\d{8}\d{2}$/;
-    
+
     if (!nidaFormatPattern.test(scrubbedId)) {
       throw new BadRequestException(
         `Malformed National ID parameter string. Pattern violation. Input length: ${scrubbedId.length}`,
       );
     }
 
-    // Extract the developer account context attached to the incoming API token
-    const developerAccount = req['developer'];
-    if (!developerAccount) {
-      throw new BadRequestException('Security Context Error: Unable to identify active developer payload.');
-    }
-
-    // Extract structural gender value mapping directly from position 5 index byte
-    // NIDA National Standard Conventions: 8 = MALE, 7 = FEMALE
+    const developerAccount = req.developer;
     const genderIdentifierDigit = scrubbedId.charAt(5);
     const resolvedGender = genderIdentifierDigit === '8' ? 'MALE' : 'FEMALE';
-
-    // Extract birth year embedded directly in the structural footprint of the ID string
     const embeddedBirthYear = scrubbedId.slice(1, 5);
 
     return {
@@ -66,12 +64,12 @@ export class KycController {
       recordFound: true,
       identity: {
         nationalId: scrubbedId,
-        // Pull down the actual credentials the developer signed up with
         firstName: developerAccount.developerName.split(' ')[0] || 'Developer',
-        lastName: developerAccount.developerName.split(' ').slice(1).join(' ') || 'Profile',
+        lastName:
+          developerAccount.developerName.split(' ').slice(1).join(' ') ||
+          'Profile',
         gender: resolvedGender,
         birthYear: embeddedBirthYear,
-        // Conditional handling: display structural null fields if not explicitly configured in profile
         civilStatus: null,
         placeOfIssue: null,
       },
@@ -82,32 +80,53 @@ export class KycController {
   @Post('rra/taxes')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Compute RRA PAYE and VAT breakdown' })
-  @ApiResponse({ status: 200, description: 'Tax calculations returned' })
+  @ApiResponse({ status: 200, type: ApiSuccessResponseDto })
   async computeRraTaxBrackets(@Body() dto: CalculateTaxDto) {
-    const amount = dto.grossSalary;
-    let payeTax = 0;
-
-    if (amount <= 60000) {
-      payeTax = 0;
-    } else if (amount <= 100000) {
-      payeTax = (amount - 60000) * 0.1;
-    } else if (amount <= 200000) {
-      payeTax = 40000 * 0.1 + (amount - 100000) * 0.2;
-    } else {
-      payeTax = 40000 * 0.1 + 100000 * 0.2 + (amount - 200000) * 0.3;
-    }
-
-    const structuralVatComponent = amount * 0.18;
+    const paye = this.rraPayrollService.calculatePaye(dto.grossSalary);
+    const structuralVatComponent = dto.grossSalary * 0.18;
 
     return {
       calculatedAt: new Date().toISOString(),
       currency: 'RWF',
-      inputGrossSalary: amount,
+      inputGrossSalary: dto.grossSalary,
       statutoryDeductions: {
-        payeProgressiveTax: Math.round(payeTax),
+        payeProgressiveTax: paye.payeTax,
         standardVatEighteenPercent: Math.round(structuralVatComponent),
-        netTakeHomeAfterPaye: Math.round(amount - payeTax),
+        netTakeHomeAfterPaye: Math.round(dto.grossSalary - paye.payeTax),
       },
+    };
+  }
+
+  @Post('rra/rssb')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Calculate RSSB pension and maternity contributions',
+    description:
+      'Employee pension 3%, employer pension 5%, employee maternity 0.3%, employer maternity 0.3%.',
+  })
+  @ApiResponse({ status: 200, type: ApiSuccessResponseDto })
+  async computeRssbContributions(@Body() dto: CalculateTaxDto) {
+    const rssb = this.rraPayrollService.calculateRssb(dto.grossSalary);
+    return {
+      data: rssb,
+      message: 'RSSB contributions calculated successfully',
+    };
+  }
+
+  @Post('rra/payroll-summary')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Full payroll summary combining PAYE and RSSB deductions',
+  })
+  @ApiResponse({ status: 200, type: ApiSuccessResponseDto })
+  @ApiResponse({ status: 400, type: ApiErrorResponseDto })
+  async computePayrollSummary(@Body() dto: CalculateTaxDto) {
+    const summary = this.rraPayrollService.calculatePayrollSummary(
+      dto.grossSalary,
+    );
+    return {
+      data: summary,
+      message: 'Payroll summary calculated successfully',
     };
   }
 

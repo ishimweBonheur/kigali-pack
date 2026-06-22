@@ -12,8 +12,13 @@ import { PlanEntity } from './entities/plan.entity';
 import { InvoiceEntity, InvoiceStatus } from './entities/invoice.entity';
 import { ApiKeyEntity } from '../auth/entities/api-key.entity';
 import { ApiKeyTier } from '../auth/enums/api-key.enum';
+import { ApiUsageEntity } from '../analytics/entities/api-usage.entity';
 import { JwtPayload } from '../organizations/organization.service';
 import { OrganizationEntity } from '../organizations/entities/organization.entity';
+import {
+  InvoiceListItem,
+  UsageCounterResponse,
+} from './dto/invoice.dto';
 
 @Injectable()
 export class BillingService {
@@ -178,6 +183,109 @@ export class BillingService {
       cancelled: true,
       cancelledAt: subscription.cancelledAt,
       downgradedTo: ApiKeyTier.FREE,
+    };
+  }
+
+  async listInvoices(member: JwtPayload): Promise<InvoiceListItem[]> {
+    const developerName = await this.resolveDeveloperNameFromJwt(member);
+
+    const subscriptions = await this.subscriptionRepo.find({
+      where: { developerName },
+      relations: { invoices: true },
+      order: { createdAt: 'DESC' },
+    });
+
+    const invoices = subscriptions.flatMap((sub) =>
+      (sub.invoices ?? []).map((invoice) =>
+        this.toInvoiceListItem(invoice, sub),
+      ),
+    );
+
+    return invoices.sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    );
+  }
+
+  async getInvoiceById(
+    member: JwtPayload,
+    invoiceId: string,
+  ): Promise<InvoiceListItem> {
+    const developerName = await this.resolveDeveloperNameFromJwt(member);
+
+    const invoice = await this.invoiceRepo.findOne({
+      where: { id: invoiceId },
+      relations: { subscription: true },
+    });
+
+    if (!invoice || invoice.subscription.developerName !== developerName) {
+      throw new NotFoundException(`Invoice ${invoiceId} not found`);
+    }
+
+    return this.toInvoiceListItem(invoice, invoice.subscription);
+  }
+
+  async getUsageCounter(member: JwtPayload): Promise<UsageCounterResponse> {
+    const developerName = await this.resolveDeveloperNameFromJwt(member);
+    const apiKey = await this.resolveApiKeyFromJwt(member);
+
+    const subscription = await this.subscriptionRepo.findOne({
+      where: { developerName, status: SubscriptionStatus.ACTIVE },
+      relations: { plan: true },
+      order: { createdAt: 'DESC' },
+    });
+
+    const plan = subscription?.plan ?? (await this.planRepo.findOne({ where: { code: 'FREE' } }));
+    const planLimit = plan?.rateLimitPerHour
+      ? plan.rateLimitPerHour * 24 * 30
+      : 100 * 24 * 30;
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    const usageResult = await this.dataSource
+      .getRepository(ApiUsageEntity)
+      .createQueryBuilder('usage')
+      .select('COALESCE(SUM(usage.requests), 0)', 'total')
+      .where('usage.api_key_id = :apiKeyId', { apiKeyId: apiKey.id })
+      .andWhere('usage.usage_date >= :from', {
+        from: monthStart.toISOString().slice(0, 10),
+      })
+      .andWhere('usage.usage_date < :to', {
+        to: monthEnd.toISOString().slice(0, 10),
+      })
+      .getRawOne<{ total: string }>();
+
+    const currentUsage = Number(usageResult?.total ?? 0);
+
+    return {
+      currentUsage,
+      planLimit,
+      planCode: plan?.code ?? 'FREE',
+      usagePercent:
+        planLimit > 0 ? Math.round((currentUsage / planLimit) * 10000) / 100 : 0,
+      resettingAt: monthEnd.toISOString(),
+    };
+  }
+
+  private toInvoiceListItem(
+    invoice: InvoiceEntity,
+    subscription: SubscriptionEntity,
+  ): InvoiceListItem {
+    const shortId = invoice.id.replace(/-/g, '').slice(0, 8).toUpperCase();
+    const year = invoice.createdAt.getFullYear();
+
+    return {
+      id: invoice.id,
+      invoiceNumber: `INV-${year}-${shortId}`,
+      amount: Number(invoice.amountRwf),
+      currency: 'RWF',
+      status: invoice.status === InvoiceStatus.PAID ? 'PAID' : 'UNPAID',
+      billingPeriod: {
+        start: subscription.currentPeriodStart,
+        end: subscription.currentPeriodEnd,
+      },
+      createdAt: invoice.createdAt,
     };
   }
 

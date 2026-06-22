@@ -8,7 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import * as crypto from 'crypto';
 import { ApiKeyEntity } from './entities/api-key.entity';
-import { ApiKeyEnvironment } from './enums/api-key.enum';
+import { ApiKeyEnvironment, ApiKeyTier } from './enums/api-key.enum';
 import { CreateApiKeyDto } from './dto/create-api-key.dto';
 import {
   ApiKeyResponseDto,
@@ -182,6 +182,34 @@ export class ApiKeyService {
       return false;
     }
     return true;
+  }
+
+  async ensureDefaultKeyForOrganization(
+    developerName: string,
+    label = 'Default',
+  ): Promise<ApiKeyEntity> {
+    const existing = await this.apiKeyRepo.findOne({
+      where: { developerName, isActive: true },
+      order: { createdAt: 'DESC' },
+    });
+
+    if (existing && this.isKeyValid(existing)) {
+      return existing;
+    }
+
+    const rawToken = this.generateRawToken(ApiKeyEnvironment.TEST);
+    const entity = this.apiKeyRepo.create({
+      developerName,
+      name: label,
+      hashedKey: this.hashToken(rawToken),
+      keyPrefix: this.extractKeyPrefix(rawToken),
+      environment: ApiKeyEnvironment.TEST,
+      tier: ApiKeyTier.FREE,
+      isActive: true,
+      expiresAt: null,
+    });
+
+    return this.apiKeyRepo.save(entity);
   }
 
   private async findOwnedKey(

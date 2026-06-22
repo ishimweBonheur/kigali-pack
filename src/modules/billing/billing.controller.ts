@@ -5,13 +5,16 @@ import {
   Delete,
   Body,
   Req,
+  Param,
   UseGuards,
   HttpCode,
   HttpStatus,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiParam,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -136,6 +139,55 @@ export class BillingController {
     return {
       data: result,
       message: 'Subscription cancelled successfully (deprecated endpoint)',
+    };
+  }
+
+  @Get('invoices')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('jwt')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'List historical invoices for the organization (JWT)' })
+  @ApiResponse({ status: 200, type: ApiSuccessResponseDto })
+  async listInvoices(@Req() req: JwtRequest) {
+    const invoices = await this.billingService.listInvoices(req.member);
+    return {
+      data: invoices,
+      message: 'Invoices retrieved successfully',
+    };
+  }
+
+  @Get('invoices/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('jwt')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get a specific invoice by ID (JWT)' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiResponse({ status: 200, type: ApiSuccessResponseDto })
+  @ApiResponse({ status: 404, type: ApiErrorResponseDto })
+  async getInvoice(
+    @Req() req: JwtRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    const invoice = await this.billingService.getInvoiceById(req.member, id);
+    return {
+      data: invoice,
+      message: 'Invoice retrieved successfully',
+    };
+  }
+
+  @Get('usage-counter')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('jwt')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Get current monthly API usage against plan limit (JWT)',
+  })
+  @ApiResponse({ status: 200, type: ApiSuccessResponseDto })
+  async getUsageCounter(@Req() req: JwtRequest) {
+    const counter = await this.billingService.getUsageCounter(req.member);
+    return {
+      data: counter,
+      message: 'Usage counter retrieved successfully',
     };
   }
 }
