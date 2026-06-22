@@ -1,15 +1,24 @@
-import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { NestFactory, Reflector } from '@nestjs/core';
+import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import compression from 'compression';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { GlobalHttpExceptionFilter } from './common/filters/http-exception.filter';
+import { AuditLogInterceptor } from './common/audit/audit-log.interceptor';
 import * as fs from 'fs';
 import * as path from 'path';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  app.use(helmet());
   app.use(compression());
+  app.enableCors({
+    origin: process.env.CORS_ORIGIN?.split(',') ?? true,
+    credentials: true,
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -18,6 +27,14 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+
+  const reflector = app.get(Reflector);
+  app.useGlobalInterceptors(
+    new ClassSerializerInterceptor(reflector),
+    new TransformInterceptor(reflector),
+    app.get(AuditLogInterceptor),
+  );
+  app.useGlobalFilters(new GlobalHttpExceptionFilter());
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Kigali-Pack Cloud Engine')
@@ -30,7 +47,7 @@ async function bootstrap() {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'API Key',
-        description: 'Enter your developer API key (kp_...)',
+        description: 'Developer API key (kp_test_..., kp_live_..., kp_sandbox_...)',
       },
       'bearer',
     )
@@ -39,11 +56,13 @@ async function bootstrap() {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
-        description: 'Organization JWT token from POST /v1/organizations/auth/login',
+        description: 'JWT access token from POST /v1/auth/login',
       },
       'jwt',
     )
     .addTag('System Health', 'Health, readiness, liveness, and version probes')
+    .addTag('Authentication', 'JWT login, register, refresh, and logout')
+    .addTag('Profile', 'Authenticated member profile (/v1/me)')
     .addTag('Locations', 'Rwanda administrative location hierarchy')
     .addTag('Sandbox Payments', 'Mock telecom payment simulation')
     .addTag('Compliance', 'NIDA mock and RRA tax tooling')

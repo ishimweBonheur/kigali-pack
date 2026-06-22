@@ -12,6 +12,8 @@ import { PlanEntity } from './entities/plan.entity';
 import { InvoiceEntity, InvoiceStatus } from './entities/invoice.entity';
 import { ApiKeyEntity } from '../auth/entities/api-key.entity';
 import { ApiKeyTier } from '../auth/enums/api-key.enum';
+import { JwtPayload } from '../organizations/organization.service';
+import { OrganizationEntity } from '../organizations/entities/organization.entity';
 
 @Injectable()
 export class BillingService {
@@ -24,8 +26,34 @@ export class BillingService {
     private readonly invoiceRepo: Repository<InvoiceEntity>,
     @InjectRepository(ApiKeyEntity)
     private readonly apiKeyRepo: Repository<ApiKeyEntity>,
+    @InjectRepository(OrganizationEntity)
+    private readonly orgRepo: Repository<OrganizationEntity>,
     private readonly dataSource: DataSource,
   ) {}
+
+  async resolveDeveloperNameFromJwt(member: JwtPayload): Promise<string> {
+    const org = await this.orgRepo.findOne({ where: { id: member.orgId } });
+    if (!org) {
+      throw new NotFoundException('Organization not found');
+    }
+    return org.slug;
+  }
+
+  async resolveApiKeyFromJwt(member: JwtPayload): Promise<ApiKeyEntity> {
+    const developerName = await this.resolveDeveloperNameFromJwt(member);
+    const apiKey = await this.apiKeyRepo.findOne({
+      where: { developerName, isActive: true },
+      order: { createdAt: 'DESC' },
+    });
+
+    if (!apiKey) {
+      throw new NotFoundException(
+        'No active API key found for organization. Create an API key first.',
+      );
+    }
+
+    return apiKey;
+  }
 
   async listPlans() {
     const plans = await this.planRepo.find({

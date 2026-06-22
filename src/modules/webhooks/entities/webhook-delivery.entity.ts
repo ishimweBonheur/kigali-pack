@@ -64,6 +64,9 @@ export class WebhookDeliveryEntity {
   @Column({ name: 'error_message', type: 'varchar', length: 500, nullable: true })
   errorMessage!: string | null;
 
+  @Column({ name: 'duration_ms', type: 'integer', nullable: true })
+  durationMs!: number | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 }

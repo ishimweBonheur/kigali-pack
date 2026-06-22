@@ -22,6 +22,76 @@ export class AnalyticsService {
     return { from, to };
   }
 
+  async getSummary(apiKeyId: string, query: AnalyticsQueryDto) {
+    const { from, to } = this.defaultDateRange(query);
+
+    const [usageSummary, endpointCountResult, errorLogCount, topEndpoints] =
+      await Promise.all([
+        this.usageRepo
+          .createQueryBuilder('usage')
+          .select('COALESCE(SUM(usage.requests), 0)', 'totalRequests')
+          .addSelect('COALESCE(SUM(usage.error_count), 0)', 'totalErrors')
+          .addSelect(
+            'SUM(usage.average_latency_ms * usage.requests) / NULLIF(SUM(usage.requests), 0)',
+            'averageLatencyMs',
+          )
+          .where('usage.api_key_id = :apiKeyId', { apiKeyId })
+          .andWhere('usage.usage_date BETWEEN :from AND :to', { from, to })
+          .getRawOne<{
+            totalRequests: string;
+            totalErrors: string;
+            averageLatencyMs: string | null;
+          }>(),
+        this.usageRepo
+          .createQueryBuilder('usage')
+          .select('COUNT(DISTINCT usage.endpoint)', 'endpointCount')
+          .where('usage.api_key_id = :apiKeyId', { apiKeyId })
+          .andWhere('usage.usage_date BETWEEN :from AND :to', { from, to })
+          .getRawOne<{ endpointCount: string }>(),
+        this.logRepo
+          .createQueryBuilder('log')
+          .select('COUNT(*)', 'recentErrorCount')
+          .where('log.api_key_id = :apiKeyId', { apiKeyId })
+          .andWhere('log.status_code >= 400')
+          .andWhere('log.timestamp::date BETWEEN :from::date AND :to::date', {
+            from,
+            to,
+          })
+          .getRawOne<{ recentErrorCount: string }>(),
+        this.usageRepo
+          .createQueryBuilder('usage')
+          .select('usage.endpoint', 'endpoint')
+          .addSelect('SUM(usage.requests)', 'requests')
+          .where('usage.api_key_id = :apiKeyId', { apiKeyId })
+          .andWhere('usage.usage_date BETWEEN :from AND :to', { from, to })
+          .groupBy('usage.endpoint')
+          .orderBy('SUM(usage.requests)', 'DESC')
+          .limit(5)
+          .getRawMany<{ endpoint: string; requests: string }>(),
+      ]);
+
+    const totalRequests = Number(usageSummary?.totalRequests ?? 0);
+    const totalErrors = Number(usageSummary?.totalErrors ?? 0);
+
+    return {
+      period: { from, to },
+      summary: {
+        totalRequests,
+        totalErrors,
+        errorRate: totalRequests > 0 ? totalErrors / totalRequests : 0,
+        averageLatencyMs: Math.round(
+          Number(usageSummary?.averageLatencyMs ?? 0),
+        ),
+        uniqueEndpoints: Number(endpointCountResult?.endpointCount ?? 0),
+        recentErrorLogs: Number(errorLogCount?.recentErrorCount ?? 0),
+      },
+      topEndpoints: topEndpoints.map((row) => ({
+        endpoint: row.endpoint,
+        requests: Number(row.requests),
+      })),
+    };
+  }
+
   async getUsage(apiKeyId: string, query: AnalyticsQueryDto) {
     const { from, to } = this.defaultDateRange(query);
     const page = query.page ?? 1;

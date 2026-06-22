@@ -173,6 +173,53 @@ export class WebhookService {
     );
   }
 
+  async listDeliveries(
+    owner: ApiKeyEntity,
+    webhookId: string,
+    page = 1,
+    limit = 20,
+  ) {
+    const webhook = await this.findOwned(owner, webhookId);
+    const offset = (page - 1) * limit;
+
+    const [deliveries, total] = await this.deliveryRepo.findAndCount({
+      where: { webhook: { id: webhook.id } },
+      order: { createdAt: 'DESC' },
+      skip: offset,
+      take: limit,
+    });
+
+    return {
+      webhookId: webhook.id,
+      pagination: { page, limit, total },
+      data: deliveries.map((delivery) => this.toDeliveryResponse(delivery, webhook.url)),
+    };
+  }
+
+  private toDeliveryResponse(
+    delivery: WebhookDeliveryEntity,
+    webhookUrl: string,
+  ) {
+    return {
+      id: delivery.id,
+      eventType: delivery.eventType,
+      status: delivery.status,
+      attempt: delivery.attemptCount,
+      durationMs: delivery.durationMs,
+      request: {
+        url: webhookUrl,
+        body: delivery.payload,
+      },
+      response: {
+        statusCode: delivery.responseStatus,
+        body: delivery.responseBody,
+      },
+      errorMessage: delivery.errorMessage,
+      createdAt: delivery.createdAt,
+      lastAttemptAt: delivery.lastAttemptAt,
+    };
+  }
+
   private async findOwned(
     owner: ApiKeyEntity,
     id: string,

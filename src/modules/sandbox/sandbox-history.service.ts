@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MockTransactionEntity } from './entities/mock-transaction.entity';
-import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
+import { SandboxHistoryQueryDto } from './dto/sandbox-query.dto';
 
 @Injectable()
 export class SandboxHistoryService {
@@ -11,21 +11,43 @@ export class SandboxHistoryService {
     private readonly txRepo: Repository<MockTransactionEntity>,
   ) {}
 
-  async listHistory(apiKeyId: string, query: PaginationQueryDto) {
+  async listHistory(apiKeyId: string, query: SandboxHistoryQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const offset = (page - 1) * limit;
+    const sortBy = query.sortBy ?? 'createdAt';
+    const sortOrder = query.sortOrder ?? 'DESC';
 
-    const [transactions, total] = await this.txRepo
+    const qb = this.txRepo
       .createQueryBuilder('tx')
-      .where('tx.api_key_id = :apiKeyId', { apiKeyId })
-      .orderBy('tx.created_at', 'DESC')
-      .skip(offset)
-      .take(limit)
-      .getManyAndCount();
+      .where('tx.api_key_id = :apiKeyId', { apiKeyId });
+
+    if (query.status) {
+      qb.andWhere('tx.status = :status', { status: query.status });
+    }
+
+    if (query.gateway) {
+      qb.andWhere('tx.gateway = :gateway', { gateway: query.gateway.toUpperCase() });
+    }
+
+    const sortColumn =
+      sortBy === 'amount'
+        ? 'tx.amount'
+        : sortBy === 'status'
+          ? 'tx.status'
+          : 'tx.created_at';
+
+    qb.orderBy(sortColumn, sortOrder).skip(offset).take(limit);
+
+    const [transactions, total] = await qb.getManyAndCount();
 
     return {
       pagination: { page, limit, total },
+      filters: {
+        status: query.status ?? null,
+        gateway: query.gateway ?? null,
+      },
+      sort: { sortBy, sortOrder },
       data: transactions.map((tx) => this.serialize(tx)),
     };
   }
@@ -43,7 +65,7 @@ export class SandboxHistoryService {
     return this.serialize(tx);
   }
 
-  private serialize(tx: MockTransactionEntity) {
+  serialize(tx: MockTransactionEntity) {
     return {
       transactionId: tx.id,
       phoneNumber: tx.phoneNumber,

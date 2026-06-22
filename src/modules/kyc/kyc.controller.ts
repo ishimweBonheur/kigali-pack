@@ -19,6 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { TierThrottlerGuard } from '../../common/guards/tier-throttler.guard';
+import { Public } from '../../common/decorators/public.decorator';
 import { CalculateTaxDto } from './dto/calculate-tax.dto';
 
 @ApiTags('Compliance')
@@ -112,8 +113,10 @@ export class KycController {
 
   @Get('boilerplates/scaffold')
   @HttpCode(HttpStatus.OK)
+  @Public()
   @ApiOperation({
     summary: 'Retrieve recommended project boilerplate template',
+    description: 'Public endpoint — no authentication required.',
   })
   async retrieveBoilerplateTemplateStructure() {
     return {

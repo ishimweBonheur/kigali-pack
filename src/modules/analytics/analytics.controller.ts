@@ -25,6 +25,19 @@ import { AnalyticsService } from './analytics.service';
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
+  @Get('summary')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get aggregated analytics dashboard summary',
+    description: 'Optimized single-call summary combining usage, errors, latency, and top endpoints.',
+  })
+  async getSummary(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: AnalyticsQueryDto,
+  ) {
+    return this.analyticsService.getSummary(req.developer.id, query);
+  }
+
   @Get('usage')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get aggregated API usage statistics' })

@@ -76,7 +76,7 @@ export class OrganizationService {
         organization: savedOrg,
         email: dto.ownerEmail.toLowerCase(),
         passwordHash: this.hashPassword(dto.ownerPassword),
-        role: OrganizationRole.OWNER,
+        role: OrganizationRole.ORG_OWNER,
       });
       const savedOwner = await memberRepo.save(owner);
 
@@ -139,6 +139,7 @@ export class OrganizationService {
   async addMember(orgId: string, requesterId: string, dto: AddMemberDto) {
     await this.assertRole(orgId, requesterId, [
       OrganizationRole.OWNER,
+      OrganizationRole.ORG_OWNER,
       OrganizationRole.ADMIN,
     ]);
 
@@ -155,10 +156,12 @@ export class OrganizationService {
     }
 
     if (
-      dto.role === OrganizationRole.OWNER &&
-      !(await this.isOwner(orgId, requesterId))
+      dto.role === OrganizationRole.OWNER ||
+      dto.role === OrganizationRole.ORG_OWNER
     ) {
-      throw new ConflictException('Only owners can assign the OWNER role');
+      if (!(await this.isOwner(orgId, requesterId))) {
+        throw new ConflictException('Only owners can assign the OWNER role');
+      }
     }
 
     const member = this.memberRepo.create({
@@ -196,6 +199,7 @@ export class OrganizationService {
   async removeMember(orgId: string, requesterId: string, memberId: string) {
     await this.assertRole(orgId, requesterId, [
       OrganizationRole.OWNER,
+      OrganizationRole.ORG_OWNER,
       OrganizationRole.ADMIN,
     ]);
 
@@ -206,7 +210,10 @@ export class OrganizationService {
       throw new NotFoundException('Member not found');
     }
 
-    if (target.role === OrganizationRole.OWNER) {
+    if (
+      target.role === OrganizationRole.OWNER ||
+      target.role === OrganizationRole.ORG_OWNER
+    ) {
       throw new ConflictException('Cannot remove the organization owner');
     }
 
@@ -253,6 +260,9 @@ export class OrganizationService {
     const member = await this.memberRepo.findOne({
       where: { id: memberId, organization: { id: orgId } },
     });
-    return member?.role === OrganizationRole.OWNER;
+    return (
+      member?.role === OrganizationRole.OWNER ||
+      member?.role === OrganizationRole.ORG_OWNER
+    );
   }
 }

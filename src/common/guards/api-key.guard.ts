@@ -4,12 +4,14 @@ import {
   ExecutionContext,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ApiKeyEntity } from '../../modules/auth/entities/api-key.entity';
 import { ApiLogEntity } from '../../modules/analytics/entities/api-log.entity';
 import { ApiKeyService } from '../../modules/auth/api-key.service';
 import { UsageMeteringService } from '../../modules/analytics/usage-metering.service';
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -21,9 +23,19 @@ export class ApiKeyGuard implements CanActivate {
     private readonly apiLogRepo: Repository<ApiLogEntity>,
     private readonly apiKeyService: ApiKeyService,
     private readonly usageMeteringService: UsageMeteringService,
+    private readonly reflector: Reflector,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
+    if (isPublic) {
+      return true;
+    }
+
     const request = context.switchToHttp().getRequest();
     const response = context.switchToHttp().getResponse();
     const authHeader = request.headers['authorization'];

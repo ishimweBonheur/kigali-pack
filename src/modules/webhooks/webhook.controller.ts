@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   Req,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -21,6 +22,7 @@ import {
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { TierThrottlerGuard } from '../../common/guards/tier-throttler.guard';
 import type { AuthenticatedRequest } from '../../common/types/authenticated-request.interface';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { WebhookService } from './webhook.service';
 import { CreateWebhookDto, UpdateWebhookDto } from './dto/webhook.dto';
 
@@ -69,6 +71,25 @@ export class WebhookController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.webhookService.remove(req.developer, id);
+  }
+
+  @Get(':id/deliveries')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'List webhook delivery attempts with request/response audit trail',
+  })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  async listDeliveries(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: PaginationQueryDto,
+  ) {
+    return this.webhookService.listDeliveries(
+      req.developer,
+      id,
+      query.page,
+      query.limit,
+    );
   }
 
   @Post(':id/test')

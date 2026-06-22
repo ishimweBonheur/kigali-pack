@@ -1,95 +1,153 @@
 import {
   Controller,
   Get,
+  Post,
+  Body,
+  Param,
   Query,
   UseGuards,
   UseInterceptors,
   HttpStatus,
   HttpCode,
+  ParseUUIDPipe,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiParam,
   ApiQuery,
+  ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { AdministrativeUnitEntity } from './entities/administrative-unit.entity';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { TierThrottlerGuard } from '../../common/guards/tier-throttler.guard';
 import { LocationsCacheInterceptor } from '../../common/cache/locations-cache.interceptor';
+import { LocationsService } from './locations.service';
+import {
+  LocationChildrenQueryDto,
+  NormalizeAddressDto,
+} from './dto/locations.dto';
+import {
+  ApiErrorResponseDto,
+  ApiSuccessResponseDto,
+} from '../../common/dto/api-response.dto';
 
 @ApiTags('Locations')
-@ApiBearerAuth()
 @Controller('v1/locations')
-@UseGuards(ApiKeyGuard, TierThrottlerGuard)
 export class LocationsController {
-  constructor(
-    @InjectRepository(AdministrativeUnitEntity)
-    private readonly locationRepo: Repository<AdministrativeUnitEntity>,
-  ) {}
+  constructor(private readonly locationsService: LocationsService) {}
 
   @Get('root-provinces')
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(LocationsCacheInterceptor)
-  @ApiOperation({ summary: 'List all active root provinces' })
+  @ApiOperation({
+    summary: 'List all active root provinces',
+    description: 'Public endpoint — no authentication required.',
+  })
+  @ApiResponse({ status: 200, type: ApiSuccessResponseDto })
+  @ApiResponse({ status: 400, type: ApiErrorResponseDto })
   async getProvinces() {
-    return await this.locationRepo.find({
-      where: { level: 'PROVINCE', isActive: true },
-      order: { name: 'ASC' },
-    });
+    const provinces = await this.locationsService.getRootProvinces();
+    return { data: provinces, message: 'Root provinces retrieved successfully' };
   }
 
   @Get('children')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'List child administrative units by parent ID' })
+  @UseGuards(ApiKeyGuard, TierThrottlerGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'List child administrative units by parent ID (deprecated)',
+    description:
+      'Deprecated — use GET /v1/locations/:parentId/children instead.',
+    deprecated: true,
+  })
   @ApiQuery({ name: 'parentId', required: true, type: String })
-  async getChildrenNodes(@Query('parentId') parentId: string) {
-    return await this.locationRepo.find({
-      where: { parent: { id: parentId }, isActive: true },
-      order: { name: 'ASC' },
-    });
+  async getChildrenNodesLegacy(
+    @Query('parentId', ParseUUIDPipe) parentId: string,
+    @Query() query: LocationChildrenQueryDto,
+  ) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 50;
+    const { items, pagination } = await this.locationsService.getChildrenByParentId(
+      parentId,
+      page,
+      limit,
+    );
+    return {
+      data: items,
+      pagination,
+      message: 'Child locations retrieved successfully (deprecated endpoint)',
+    };
+  }
+
+  @Post('normalize')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(ApiKeyGuard, TierThrottlerGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Normalize a raw address string against NISR hierarchy',
+  })
+  @ApiResponse({ status: 200, type: ApiSuccessResponseDto })
+  async normalizeAddress(@Body() dto: NormalizeAddressDto) {
+    const result = await this.locationsService.normalizeAddress(dto.address);
+    return {
+      data: result,
+      message:
+        'matchFound' in result && result.matchFound
+          ? 'Address normalized successfully'
+          : 'No matching location found',
+    };
   }
 
   @Get('normalize')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(ApiKeyGuard, TierThrottlerGuard)
+  @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Normalize a raw address string against NISR hierarchy',
+    summary: 'Normalize address via query string (deprecated)',
+    description: 'Deprecated — use POST /v1/locations/normalize with JSON body.',
+    deprecated: true,
   })
   @ApiQuery({ name: 'rawAddress', required: false, type: String })
-  async normalizeInputAddress(@Query('rawAddress') rawAddress: string) {
-    if (!rawAddress) return { matchFound: false, cleanText: '' };
-
-    const cleanTokens = rawAddress
-      .toLowerCase()
-      .replace(/[\.,-\/#!$%\^&\*;:{}=\-_`~()]/g, ' ')
-      .split(/\s+/)
-      .filter((token) => token.length > 2);
-
-    for (const token of cleanTokens) {
-      const match = await this.locationRepo
-        .createQueryBuilder('unit')
-        .where('LOWER(unit.name) LIKE :pattern', { pattern: `%${token}%` })
-        .andWhere('unit.level IN (:...criticalLevels)', {
-          criticalLevels: ['DISTRICT', 'SECTOR'],
-        })
-        .leftJoinAndSelect('unit.parent', 'parent')
-        .getOne();
-
-      if (match) {
-        return {
-          matchFound: true,
-          standardizedAddress:
-            `${match.name}, ${match.parent ? match.parent.name : ''}`.replace(
-              /,\s*$/,
-              '',
-            ),
-          metadata: { id: match.id, level: match.level, code: match.code },
-        };
-      }
+  async normalizeInputAddressLegacy(@Query('rawAddress') rawAddress?: string) {
+    if (!rawAddress) {
+      return {
+        data: { matchFound: false, cleanText: '' },
+        message: 'No address provided',
+      };
     }
+    const result = await this.locationsService.normalizeAddress(rawAddress);
+    return {
+      data: result,
+      message:
+        'matchFound' in result && result.matchFound
+          ? 'Address normalized successfully'
+          : 'No matching location found',
+    };
+  }
 
-    return { matchFound: false, originalInput: rawAddress };
+  @Get(':parentId/children')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(ApiKeyGuard, TierThrottlerGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List child administrative units by parent ID (RESTful)' })
+  @ApiParam({ name: 'parentId', format: 'uuid' })
+  @ApiResponse({ status: 200, type: ApiSuccessResponseDto })
+  async getChildrenByParentId(
+    @Param('parentId', ParseUUIDPipe) parentId: string,
+    @Query() query: LocationChildrenQueryDto,
+  ) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 50;
+    const { items, pagination } = await this.locationsService.getChildrenByParentId(
+      parentId,
+      page,
+      limit,
+    );
+    return {
+      data: items,
+      pagination,
+      message: 'Child locations retrieved successfully',
+    };
   }
 }

@@ -11,10 +11,14 @@ import {
 import { OrganizationEntity } from './organization.entity';
 
 export enum OrganizationRole {
+  /** @deprecated Use ORG_OWNER */
   OWNER = 'OWNER',
   ADMIN = 'ADMIN',
   DEVELOPER = 'DEVELOPER',
+  /** @deprecated Use ORG_MEMBER */
   VIEWER = 'VIEWER',
+  ORG_OWNER = 'ORG_OWNER',
+  ORG_MEMBER = 'ORG_MEMBER',
 }
 
 @Entity('organization_members')

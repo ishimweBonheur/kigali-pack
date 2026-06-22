@@ -59,6 +59,7 @@ export class WebhookDeliveryProcessor extends WorkerHost {
 
     delivery.attemptCount += 1;
     delivery.lastAttemptAt = new Date();
+    const attemptStarted = Date.now();
 
     try {
       const response = await firstValueFrom(
@@ -74,6 +75,8 @@ export class WebhookDeliveryProcessor extends WorkerHost {
         }),
       );
 
+      delivery.durationMs = Date.now() - attemptStarted;
+
       delivery.responseStatus = response.status;
       delivery.responseBody = JSON.stringify(response.data).slice(0, 2000);
 
@@ -87,6 +90,7 @@ export class WebhookDeliveryProcessor extends WorkerHost {
 
       throw new Error(`HTTP ${response.status} from webhook endpoint`);
     } catch (error) {
+      delivery.durationMs = Date.now() - attemptStarted;
       const message = error instanceof Error ? error.message : String(error);
       delivery.errorMessage = message.slice(0, 500);
 

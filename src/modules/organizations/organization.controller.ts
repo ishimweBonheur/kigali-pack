@@ -45,7 +45,11 @@ export class OrganizationController {
 
   @Post('auth/login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Login and receive JWT for organization RBAC' })
+  @ApiOperation({
+    summary: 'Login and receive JWT for organization RBAC (deprecated)',
+    description: 'Deprecated — use POST /v1/auth/login instead.',
+    deprecated: true,
+  })
   async login(@Body() dto: LoginDto) {
     return this.organizationService.login(dto);
   }
@@ -63,7 +67,11 @@ export class OrganizationController {
   @HttpCode(HttpStatus.CREATED)
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(OrganizationRole.OWNER, OrganizationRole.ADMIN)
+  @Roles(
+    OrganizationRole.OWNER,
+    OrganizationRole.ORG_OWNER,
+    OrganizationRole.ADMIN,
+  )
   @ApiOperation({ summary: 'Add a member to an organization' })
   @ApiParam({ name: 'id', format: 'uuid' })
   async addMember(
@@ -91,7 +99,11 @@ export class OrganizationController {
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(OrganizationRole.OWNER, OrganizationRole.ADMIN)
+  @Roles(
+    OrganizationRole.OWNER,
+    OrganizationRole.ORG_OWNER,
+    OrganizationRole.ADMIN,
+  )
   @ApiOperation({ summary: 'Remove a member from an organization' })
   @ApiParam({ name: 'id', format: 'uuid' })
   @ApiParam({ name: 'memberId', format: 'uuid' })
