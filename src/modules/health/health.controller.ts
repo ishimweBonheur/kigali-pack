@@ -1,10 +1,12 @@
 import { Controller, Get, HttpCode, HttpStatus, Res } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { SkipTransform } from '../../common/decorators/skip-transform.decorator';
 import { HealthService } from './health.service';
 
 @ApiTags('System Health')
 @Controller()
+@SkipTransform()
 export class HealthController {
   constructor(private readonly healthService: HealthService) {}
 

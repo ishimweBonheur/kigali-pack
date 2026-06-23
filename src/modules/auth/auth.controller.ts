@@ -4,6 +4,7 @@ import {
   Body,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiOperation,
@@ -25,9 +26,11 @@ import {
   ApiErrorResponseDto,
   ApiSuccessResponseDto,
 } from '../../common/dto/api-response.dto';
+import { AuthRateLimitGuard } from '../../common/guards/auth-rate-limit.guard';
 
 @ApiTags('Authentication')
 @Controller('v1/auth')
+@UseGuards(AuthRateLimitGuard)
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
@@ -36,6 +39,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Register a new organization and owner account' })
   @ApiResponse({ status: 201, type: ApiSuccessResponseDto })
   @ApiResponse({ status: 409, type: ApiErrorResponseDto })
+  @ApiResponse({ status: 429, type: ApiErrorResponseDto })
   async register(@Body() dto: RegisterDto) {
     const result = await this.authService.register(dto);
     return {

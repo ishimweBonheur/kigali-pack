@@ -10,6 +10,7 @@ import {
   Req,
   UseGuards,
   ParseUUIDPipe,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -23,6 +24,7 @@ import { TierThrottlerGuard } from '../../common/guards/tier-throttler.guard';
 import type { AuthenticatedRequest } from '../../common/types/authenticated-request.interface';
 import { ApiKeyService } from './api-key.service';
 import { CreateApiKeyDto } from './dto/create-api-key.dto';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import {
   ApiKeyResponseDto,
   CreateApiKeyResponseDto,
@@ -66,8 +68,9 @@ export class ApiKeyController {
   })
   async list(
     @Req() req: AuthenticatedRequest,
-  ): Promise<ApiKeyResponseDto[]> {
-    return this.apiKeyService.listByDeveloper(req.developer.developerName);
+    @Query() query: PaginationQueryDto,
+  ) {
+    return this.apiKeyService.listByDeveloper(req.developer.developerName, query);
   }
 
   @Patch(':id/revoke')

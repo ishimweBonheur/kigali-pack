@@ -5,6 +5,10 @@ import { ApiUsageEntity } from './entities/api-usage.entity';
 import { ApiLogEntity } from './entities/api-log.entity';
 import { AnalyticsQueryDto } from '../../common/dto/pagination-query.dto';
 import {
+  buildPaginationMeta,
+  paginateOffset,
+} from '../../common/utils/pagination.util';
+import {
   ApiLogDetail,
   ApiLogListItem,
   ApiLogsQueryDto,
@@ -101,7 +105,7 @@ export class AnalyticsService {
     const { from, to } = this.defaultDateRange(query);
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const offset = (page - 1) * limit;
+    const offset = paginateOffset(page, limit);
 
     const [rows, total] = await this.usageRepo
       .createQueryBuilder('usage')
@@ -127,7 +131,7 @@ export class AnalyticsService {
         totalRequests: Number(summary?.totalRequests ?? 0),
         totalErrors: Number(summary?.totalErrors ?? 0),
       },
-      pagination: { page, limit, total },
+      pagination: buildPaginationMeta(page, limit, total),
       data: rows.map((row) => ({
         endpoint: row.endpoint,
         date: row.usageDate,
@@ -271,7 +275,7 @@ export class AnalyticsService {
   async listLogs(apiKeyId: string, query: ApiLogsQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const offset = (page - 1) * limit;
+    const offset = paginateOffset(page, limit);
 
     const qb = this.logRepo
       .createQueryBuilder('log')
@@ -293,7 +297,7 @@ export class AnalyticsService {
     const [logs, total] = await qb.getManyAndCount();
 
     return {
-      pagination: { page, limit, total },
+      pagination: buildPaginationMeta(page, limit, total),
       data: logs.map((log) => this.toLogListItem(log)),
     };
   }

@@ -47,8 +47,8 @@ export class WebhookController {
   @Get()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'List registered webhooks' })
-  async list(@Req() req: AuthenticatedRequest) {
-    return this.webhookService.list(req.developer);
+  async list(@Req() req: AuthenticatedRequest, @Query() query: PaginationQueryDto) {
+    return this.webhookService.list(req.developer, query.page, query.limit);
   }
 
   @Post('deliveries/:id/retry')

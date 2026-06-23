@@ -9,7 +9,6 @@ import {
   HttpStatus,
   HttpCode,
   Req,
-  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -239,11 +238,10 @@ export class SandboxController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Check mock transaction status' })
   @ApiParam({ name: 'transactionId', type: 'string' })
-  async getTransactionStatus(@Param('transactionId') transactionId: string) {
-    const tx = await this.txRepo.findOne({ where: { id: transactionId } });
-    if (!tx) {
-      throw new NotFoundException('Transaction not found.');
-    }
-    return this.historyService.serialize(tx);
+  async getTransactionStatus(
+    @Param('transactionId') transactionId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.historyService.getById(req.developer.id, transactionId);
   }
 }

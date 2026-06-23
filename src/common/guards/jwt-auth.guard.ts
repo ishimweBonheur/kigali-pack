@@ -3,6 +3,7 @@ import {
   CanActivate,
   ExecutionContext,
   UnauthorizedException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
@@ -93,8 +94,12 @@ export class RolesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<{ member?: JwtPayload }>();
     const member = request.member;
 
-    if (!member || !requiredRoles.some((role) => roleMatches(member.role, role))) {
-      throw new UnauthorizedException('Insufficient role permissions');
+    if (!member) {
+      throw new UnauthorizedException('Authentication required');
+    }
+
+    if (!requiredRoles.some((role) => roleMatches(member.role, role))) {
+      throw new ForbiddenException('Insufficient role permissions');
     }
 
     return true;

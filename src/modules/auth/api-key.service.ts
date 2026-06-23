@@ -15,6 +15,11 @@ import {
   CreateApiKeyResponseDto,
   RotateApiKeyResponseDto,
 } from './dto/api-key-response.dto';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
+import {
+  buildPaginationMeta,
+  paginateOffset,
+} from '../../common/utils/pagination.util';
 
 const ENVIRONMENT_PREFIX: Record<ApiKeyEnvironment, string> = {
   [ApiKeyEnvironment.LIVE]: 'kp_live_',
@@ -96,13 +101,22 @@ export class ApiKeyService {
     };
   }
 
-  async listByDeveloper(developerName: string): Promise<ApiKeyResponseDto[]> {
-    const keys = await this.apiKeyRepo.find({
+  async listByDeveloper(developerName: string, query: PaginationQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const offset = paginateOffset(page, limit);
+
+    const [keys, total] = await this.apiKeyRepo.findAndCount({
       where: { developerName },
       order: { createdAt: 'DESC' },
+      skip: offset,
+      take: limit,
     });
 
-    return keys.map((key) => this.toResponseDto(key));
+    return {
+      data: keys.map((key) => this.toResponseDto(key)),
+      pagination: buildPaginationMeta(page, limit, total),
+    };
   }
 
   async revoke(

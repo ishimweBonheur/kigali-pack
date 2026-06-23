@@ -19,6 +19,11 @@ import {
   InvoiceListItem,
   UsageCounterResponse,
 } from './dto/invoice.dto';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
+import {
+  buildPaginationMeta,
+  paginateOffset,
+} from '../../common/utils/pagination.util';
 
 @Injectable()
 export class BillingService {
@@ -186,8 +191,10 @@ export class BillingService {
     };
   }
 
-  async listInvoices(member: JwtPayload): Promise<InvoiceListItem[]> {
+  async listInvoices(member: JwtPayload, query: PaginationQueryDto) {
     const developerName = await this.resolveDeveloperNameFromJwt(member);
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
 
     const subscriptions = await this.subscriptionRepo.find({
       where: { developerName },
@@ -195,15 +202,23 @@ export class BillingService {
       order: { createdAt: 'DESC' },
     });
 
-    const invoices = subscriptions.flatMap((sub) =>
-      (sub.invoices ?? []).map((invoice) =>
-        this.toInvoiceListItem(invoice, sub),
-      ),
-    );
+    const allInvoices = subscriptions
+      .flatMap((sub) =>
+        (sub.invoices ?? []).map((invoice) =>
+          this.toInvoiceListItem(invoice, sub),
+        ),
+      )
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-    return invoices.sort(
-      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
-    );
+    const total = allInvoices.length;
+    const offset = paginateOffset(page, limit);
+    const data = allInvoices.slice(offset, offset + limit);
+
+    return {
+      data,
+      pagination: buildPaginationMeta(page, limit, total),
+      message: 'Invoices retrieved successfully',
+    };
   }
 
   async getInvoiceById(

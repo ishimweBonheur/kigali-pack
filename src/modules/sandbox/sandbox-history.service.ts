@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MockTransactionEntity } from './entities/mock-transaction.entity';
 import { SandboxHistoryQueryDto } from './dto/sandbox-query.dto';
+import { buildPaginationMeta, paginateOffset } from '../../common/utils/pagination.util';
 
 @Injectable()
 export class SandboxHistoryService {
@@ -14,7 +15,7 @@ export class SandboxHistoryService {
   async listHistory(apiKeyId: string, query: SandboxHistoryQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const offset = (page - 1) * limit;
+    const offset = paginateOffset(page, limit);
     const sortBy = query.sortBy ?? 'createdAt';
     const sortOrder = query.sortOrder ?? 'DESC';
 
@@ -42,7 +43,7 @@ export class SandboxHistoryService {
     const [transactions, total] = await qb.getManyAndCount();
 
     return {
-      pagination: { page, limit, total },
+      pagination: buildPaginationMeta(page, limit, total),
       filters: {
         status: query.status ?? null,
         gateway: query.gateway ?? null,

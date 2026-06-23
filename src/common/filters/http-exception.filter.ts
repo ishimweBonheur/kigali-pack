@@ -6,8 +6,9 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { ApiErrorPayload } from '../dto/api-response.dto';
+import { REQUEST_ID_HEADER } from '../middleware/request-id.middleware';
 
 @Catch()
 export class GlobalHttpExceptionFilter implements ExceptionFilter {
@@ -15,6 +16,7 @@ export class GlobalHttpExceptionFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
+    const request = ctx.getRequest<Request>();
     const response = ctx.getResponse<Response>();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
@@ -38,15 +40,32 @@ export class GlobalHttpExceptionFilter implements ExceptionFilter {
           message = rawMessage;
         }
 
-        if (typeof body.error === 'string' && status === HttpStatus.BAD_REQUEST) {
+        if (
+          code !== 'VALIDATION_ERROR' &&
+          typeof body.error === 'string' &&
+          status === HttpStatus.BAD_REQUEST
+        ) {
           code = body.error.toUpperCase().replace(/\s+/g, '_');
         }
       }
 
       code = this.mapStatusToCode(status, code);
     } else if (exception instanceof Error) {
-      message = exception.message;
-      this.logger.error(exception.message, exception.stack);
+      message = 'An unexpected error occurred';
+      this.logger.error(
+        JSON.stringify({
+          message: exception.message,
+          stack: exception.stack,
+          requestId: request.headers[REQUEST_ID_HEADER],
+          path: request.originalUrl ?? request.url,
+          method: request.method,
+        }),
+      );
+    }
+
+    const requestId = request.headers[REQUEST_ID_HEADER];
+    if (typeof requestId === 'string') {
+      response.setHeader(REQUEST_ID_HEADER, requestId);
     }
 
     const payload: ApiErrorPayload = {
@@ -58,6 +77,10 @@ export class GlobalHttpExceptionFilter implements ExceptionFilter {
   }
 
   private mapStatusToCode(status: number, fallback: string): string {
+    if (fallback === 'VALIDATION_ERROR') {
+      return fallback;
+    }
+
     const map: Record<number, string> = {
       [HttpStatus.BAD_REQUEST]: 'BAD_REQUEST',
       [HttpStatus.UNAUTHORIZED]: 'UNAUTHORIZED',

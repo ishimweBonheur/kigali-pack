@@ -6,6 +6,7 @@ import {
   Body,
   Param,
   Req,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -19,6 +20,8 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard, RolesGuard } from '../../common/guards/jwt-auth.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { DeprecatedEndpoint } from '../../common/decorators/deprecated-endpoint.decorator';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { OrganizationRole } from './entities/organization-member.entity';
 import { OrganizationService, JwtPayload } from './organization.service';
 import {
@@ -45,6 +48,10 @@ export class OrganizationController {
 
   @Post('auth/login')
   @HttpCode(HttpStatus.OK)
+  @DeprecatedEndpoint({
+    link: '/v1/auth/login',
+    sunset: process.env.API_SUNSET_DATE ?? '2026-12-31',
+  })
   @ApiOperation({
     summary: 'Login and receive JWT for organization RBAC (deprecated)',
     description: 'Deprecated — use POST /v1/auth/login instead.',
@@ -91,8 +98,9 @@ export class OrganizationController {
   async listMembers(
     @Param('id', ParseUUIDPipe) orgId: string,
     @Req() req: JwtRequest,
+    @Query() query: PaginationQueryDto,
   ) {
-    return this.organizationService.listMembers(orgId, req.member.sub);
+    return this.organizationService.listMembers(orgId, req.member.sub, query);
   }
 
   @Delete(':id/members/:memberId')

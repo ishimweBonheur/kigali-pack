@@ -60,6 +60,61 @@ export class RateLimitService {
     return `${RATE_LIMIT_KEY_PREFIX}:${apiKeyId}:${windowId}`;
   }
 
+  async checkScopedRateLimit(
+    scopeKey: string,
+    maxRequests: number,
+    windowSeconds: number,
+  ): Promise<RateLimitCheckResult> {
+    const reset = Math.floor(Date.now() / 1000) + windowSeconds;
+    const client = this.redisService.getClient();
+
+    if (!client || !this.redisService.isConnected()) {
+      this.logger.warn(
+        `Redis unavailable — allowing scoped request for scope=${scopeKey}`,
+      );
+      return {
+        limit: maxRequests,
+        remaining: maxRequests,
+        reset,
+        exceeded: false,
+        tier: ApiKeyTier.FREE,
+      };
+    }
+
+    const redisKey = `${RATE_LIMIT_KEY_PREFIX}:scope:${scopeKey}`;
+
+    try {
+      const currentCount = Number(
+        await client.eval(
+          INCREMENT_WITH_EXPIRE_SCRIPT,
+          1,
+          redisKey,
+          windowSeconds,
+        ),
+      );
+
+      return {
+        limit: maxRequests,
+        remaining: Math.max(maxRequests - currentCount, 0),
+        reset,
+        exceeded: currentCount > maxRequests,
+        tier: ApiKeyTier.FREE,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Scoped rate limit check failed for scope=${scopeKey}: ${message}. Failing open.`,
+      );
+      return {
+        limit: maxRequests,
+        remaining: maxRequests,
+        reset,
+        exceeded: false,
+        tier: ApiKeyTier.FREE,
+      };
+    }
+  }
+
   async checkRateLimit(
     apiKeyId: string,
     tier: string | undefined,

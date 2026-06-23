@@ -9,6 +9,7 @@ import { map } from 'rxjs/operators';
 import { Reflector } from '@nestjs/core';
 import { ApiSuccessPayload } from '../dto/api-response.dto';
 import { SKIP_TRANSFORM_KEY } from '../decorators/skip-transform.decorator';
+import { buildPaginationMeta } from '../utils/pagination.util';
 
 @Injectable()
 export class TransformInterceptor implements NestInterceptor {
@@ -82,7 +83,25 @@ export class TransformInterceptor implements NestInterceptor {
     const meta: Record<string, unknown> = {};
 
     if (record.pagination && typeof record.pagination === 'object') {
-      meta.pagination = record.pagination;
+      const pagination = record.pagination as {
+        page?: number;
+        limit?: number;
+        total?: number;
+        totalPages?: number;
+      };
+      if (
+        typeof pagination.page === 'number' &&
+        typeof pagination.limit === 'number' &&
+        typeof pagination.total === 'number'
+      ) {
+        meta.pagination = buildPaginationMeta(
+          pagination.page,
+          pagination.limit,
+          pagination.total,
+        );
+      } else {
+        meta.pagination = record.pagination;
+      }
     }
     if (record.period && typeof record.period === 'object') {
       meta.period = record.period;

@@ -19,6 +19,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { DeprecatedEndpoint } from '../../common/decorators/deprecated-endpoint.decorator';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { TierThrottlerGuard } from '../../common/guards/tier-throttler.guard';
 import { LocationsCacheInterceptor } from '../../common/cache/locations-cache.interceptor';
@@ -54,6 +55,10 @@ export class LocationsController {
   @Get('children')
   @HttpCode(HttpStatus.OK)
   @UseGuards(ApiKeyGuard, TierThrottlerGuard)
+  @DeprecatedEndpoint({
+    link: '/v1/locations/:parentId/children',
+    sunset: process.env.API_SUNSET_DATE ?? '2026-12-31',
+  })
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'List child administrative units by parent ID (deprecated)',
@@ -105,6 +110,10 @@ export class LocationsController {
   @Get('normalize')
   @HttpCode(HttpStatus.OK)
   @UseGuards(ApiKeyGuard, TierThrottlerGuard)
+  @DeprecatedEndpoint({
+    link: '/v1/locations/normalize',
+    sunset: process.env.API_SUNSET_DATE ?? '2026-12-31',
+  })
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Normalize address via query string (deprecated)',

@@ -6,6 +6,7 @@ import {
   Body,
   Req,
   Param,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -18,12 +19,14 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { DeprecatedEndpoint } from '../../common/decorators/deprecated-endpoint.decorator';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { TierThrottlerGuard } from '../../common/guards/tier-throttler.guard';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/types/authenticated-request.interface';
 import { BillingService } from './billing.service';
 import { SubscribeDto } from './dto/billing.dto';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { JwtPayload } from '../organizations/organization.service';
 import {
   ApiErrorResponseDto,
@@ -91,6 +94,10 @@ export class BillingController {
 
   @Get('subscription')
   @HttpCode(HttpStatus.OK)
+  @DeprecatedEndpoint({
+    link: '/v1/billing/subscriptions/current',
+    sunset: process.env.API_SUNSET_DATE ?? '2026-12-31',
+  })
   @ApiBearerAuth()
   @UseGuards(ApiKeyGuard, TierThrottlerGuard)
   @ApiOperation({
@@ -109,6 +116,10 @@ export class BillingController {
 
   @Post('subscribe')
   @HttpCode(HttpStatus.OK)
+  @DeprecatedEndpoint({
+    link: '/v1/billing/subscriptions',
+    sunset: process.env.API_SUNSET_DATE ?? '2026-12-31',
+  })
   @ApiBearerAuth()
   @UseGuards(ApiKeyGuard, TierThrottlerGuard)
   @ApiOperation({
@@ -128,6 +139,10 @@ export class BillingController {
 
   @Post('cancel')
   @HttpCode(HttpStatus.OK)
+  @DeprecatedEndpoint({
+    link: '/v1/billing/subscriptions/current',
+    sunset: process.env.API_SUNSET_DATE ?? '2026-12-31',
+  })
   @ApiBearerAuth()
   @UseGuards(ApiKeyGuard, TierThrottlerGuard)
   @ApiOperation({
@@ -148,12 +163,11 @@ export class BillingController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'List historical invoices for the organization (JWT)' })
   @ApiResponse({ status: 200, type: ApiSuccessResponseDto })
-  async listInvoices(@Req() req: JwtRequest) {
-    const invoices = await this.billingService.listInvoices(req.member);
-    return {
-      data: invoices,
-      message: 'Invoices retrieved successfully',
-    };
+  async listInvoices(
+    @Req() req: JwtRequest,
+    @Query() query: PaginationQueryDto,
+  ) {
+    return this.billingService.listInvoices(req.member, query);
   }
 
   @Get('invoices/:id')

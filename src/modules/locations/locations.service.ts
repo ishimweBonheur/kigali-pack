@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AdministrativeUnitEntity } from './entities/administrative-unit.entity';
 import { CacheService } from '../../common/cache/cache.service';
+import { buildPaginationMeta, paginateOffset } from '../../common/utils/pagination.util';
 
 const NORMALIZE_CACHE_TTL = 600;
 
@@ -26,7 +27,7 @@ export class LocationsService {
     page = 1,
     limit = 50,
   ) {
-    const offset = (page - 1) * limit;
+    const offset = paginateOffset(page, limit);
 
     const [items, total] = await this.locationRepo.findAndCount({
       where: { parent: { id: parentId }, isActive: true },
@@ -37,7 +38,7 @@ export class LocationsService {
 
     return {
       items,
-      pagination: { page, limit, total },
+      pagination: buildPaginationMeta(page, limit, total),
     };
   }
 

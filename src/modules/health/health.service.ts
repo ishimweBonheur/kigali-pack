@@ -97,6 +97,7 @@ export class HealthService {
     return {
       name: 'kigali-pack',
       version: process.env.npm_package_version ?? '0.0.1',
+      apiVersion: process.env.API_VERSION ?? 'v1',
       node: process.version,
       environment: process.env.NODE_ENV ?? 'development',
     };

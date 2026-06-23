@@ -7,17 +7,36 @@ import { AppModule } from './app.module';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { GlobalHttpExceptionFilter } from './common/filters/http-exception.filter';
 import { AuditLogInterceptor } from './common/audit/audit-log.interceptor';
+import { RequestLoggingInterceptor } from './common/interceptors/request-logging.interceptor';
+import { DeprecationHeaderInterceptor } from './common/interceptors/deprecation-header.interceptor';
 import * as fs from 'fs';
 import * as path from 'path';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  const apiVersion = process.env.API_VERSION ?? 'v1';
+
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.set('trust proxy', 1);
+  app.enableShutdownHooks();
   app.use(helmet());
   app.use(compression());
   app.enableCors({
     origin: process.env.CORS_ORIGIN?.split(',') ?? true,
     credentials: true,
+    exposedHeaders: [
+      'x-request-id',
+      'x-correlation-id',
+      'Deprecation',
+      'Sunset',
+      'Link',
+      'X-RateLimit-Limit',
+      'X-RateLimit-Remaining',
+      'X-RateLimit-Reset',
+      'Retry-After',
+      'X-Cache',
+    ],
   });
 
   app.useGlobalPipes(
@@ -32,6 +51,8 @@ async function bootstrap() {
   app.useGlobalInterceptors(
     new ClassSerializerInterceptor(reflector),
     new TransformInterceptor(reflector),
+    app.get(RequestLoggingInterceptor),
+    app.get(DeprecationHeaderInterceptor),
     app.get(AuditLogInterceptor),
   );
   app.useGlobalFilters(new GlobalHttpExceptionFilter());
@@ -39,7 +60,7 @@ async function bootstrap() {
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Kigali-Pack Cloud Engine')
     .setDescription(
-      'Commercial SaaS Developer Infrastructure Platform for Rwanda — locations, sandbox payments, compliance, analytics, webhooks, billing, and utilities.',
+      `Commercial SaaS Developer Infrastructure Platform for Rwanda — locations, sandbox payments, compliance, analytics, webhooks, billing, and utilities.\n\n**API Version:** ${apiVersion}`,
     )
     .setVersion('1.0.0')
     .addBearerAuth(
@@ -81,6 +102,17 @@ async function bootstrap() {
     jsonDocumentUrl: 'api/docs-json',
   });
 
+  const httpAdapter = app.getHttpAdapter();
+  httpAdapter.get('/docs', (_req: unknown, res: { redirect: (url: string) => void }) => {
+    res.redirect('/api/docs');
+  });
+  httpAdapter.get(
+    '/openapi.json',
+    (_req: unknown, res: { redirect: (url: string) => void }) => {
+      res.redirect('/api/docs-json');
+    },
+  );
+
   if (process.env.GENERATE_OPENAPI === 'true') {
     const outputPath = path.join(process.cwd(), 'openapi', 'openapi.json');
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
@@ -93,8 +125,9 @@ async function bootstrap() {
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
   console.log(`Kigali-Pack engine running on http://localhost:${port}`);
-  console.log(`Swagger docs available at http://localhost:${port}/api/docs`);
-  console.log(`OpenAPI JSON at http://localhost:${port}/api/docs-json`);
+  console.log(`API version: ${apiVersion}`);
+  console.log(`Swagger docs available at http://localhost:${port}/docs (alias) and /api/docs`);
+  console.log(`OpenAPI JSON at http://localhost:${port}/openapi.json (alias) and /api/docs-json`);
 }
 
 bootstrap();

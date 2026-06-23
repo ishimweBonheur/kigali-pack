@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 
 import { TypeOrmModule } from '@nestjs/typeorm';
 
@@ -127,6 +127,18 @@ import { RraPayrollService } from './modules/kyc/rra-payroll.service';
 import { AuditLogService } from './common/audit/audit-log.service';
 
 import { AuditLogInterceptor } from './common/audit/audit-log.interceptor';
+
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
+
+import { RequestLoggingInterceptor } from './common/interceptors/request-logging.interceptor';
+
+import { DeprecationHeaderInterceptor } from './common/interceptors/deprecation-header.interceptor';
+
+import { AdminGuard } from './common/guards/admin.guard';
+
+import { InternalGuard } from './common/guards/internal.guard';
+
+import { AuthRateLimitGuard } from './common/guards/auth-rate-limit.guard';
 
 
 
@@ -320,8 +332,22 @@ const ENTITIES = [
 
     AuditLogInterceptor,
 
+    RequestLoggingInterceptor,
+
+    DeprecationHeaderInterceptor,
+
+    AdminGuard,
+
+    InternalGuard,
+
+    AuthRateLimitGuard,
+
   ],
 
 })
 
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  }
+}

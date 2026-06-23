@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   UnauthorizedException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -18,6 +19,11 @@ import {
   CreateOrganizationDto,
   LoginDto,
 } from './dto/organization.dto';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
+import {
+  buildPaginationMeta,
+  paginateOffset,
+} from '../../common/utils/pagination.util';
 
 export interface JwtPayload {
   sub: string;
@@ -180,20 +186,30 @@ export class OrganizationService {
     };
   }
 
-  async listMembers(orgId: string, requesterId: string) {
+  async listMembers(orgId: string, requesterId: string, query: PaginationQueryDto) {
     await this.assertMember(orgId, requesterId);
 
-    const members = await this.memberRepo.find({
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const offset = paginateOffset(page, limit);
+
+    const [members, total] = await this.memberRepo.findAndCount({
       where: { organization: { id: orgId } },
       order: { createdAt: 'ASC' },
+      skip: offset,
+      take: limit,
     });
 
-    return members.map((member) => ({
-      id: member.id,
-      email: member.email,
-      role: member.role,
-      createdAt: member.createdAt,
-    }));
+    return {
+      data: members.map((member) => ({
+        id: member.id,
+        email: member.email,
+        role: member.role,
+        createdAt: member.createdAt,
+      })),
+      pagination: buildPaginationMeta(page, limit, total),
+      message: 'Organization members retrieved successfully',
+    };
   }
 
   async removeMember(orgId: string, requesterId: string, memberId: string) {
@@ -251,7 +267,7 @@ export class OrganizationService {
   ) {
     const member = await this.assertMember(orgId, memberId);
     if (!roles.includes(member.role)) {
-      throw new UnauthorizedException('Insufficient permissions');
+      throw new ForbiddenException('Insufficient permissions');
     }
     return member;
   }

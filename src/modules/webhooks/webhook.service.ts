@@ -12,6 +12,10 @@ import {
 import { ApiKeyEntity } from '../auth/entities/api-key.entity';
 import { CreateWebhookDto, UpdateWebhookDto } from './dto/webhook.dto';
 import { NotFoundException } from '@nestjs/common';
+import {
+  buildPaginationMeta,
+  paginateOffset,
+} from '../../common/utils/pagination.util';
 
 export const WEBHOOK_DELIVERY_QUEUE = 'webhook-deliveries';
 export const WEBHOOK_DLQ = 'webhook-dlq';
@@ -86,12 +90,20 @@ export class WebhookService {
     };
   }
 
-  async list(owner: ApiKeyEntity) {
-    const webhooks = await this.webhookRepo.find({
+  async list(owner: ApiKeyEntity, page = 1, limit = 20) {
+    const offset = paginateOffset(page, limit);
+
+    const [webhooks, total] = await this.webhookRepo.findAndCount({
       where: { apiKey: { id: owner.id } },
       order: { createdAt: 'DESC' },
+      skip: offset,
+      take: limit,
     });
-    return webhooks.map((webhook) => this.toResponse(webhook));
+
+    return {
+      data: webhooks.map((webhook) => this.toResponse(webhook)),
+      pagination: buildPaginationMeta(page, limit, total),
+    };
   }
 
   async update(owner: ApiKeyEntity, id: string, dto: UpdateWebhookDto) {
@@ -180,7 +192,7 @@ export class WebhookService {
     limit = 20,
   ) {
     const webhook = await this.findOwned(owner, webhookId);
-    const offset = (page - 1) * limit;
+    const offset = paginateOffset(page, limit);
 
     const [deliveries, total] = await this.deliveryRepo.findAndCount({
       where: { webhook: { id: webhook.id } },
@@ -191,7 +203,7 @@ export class WebhookService {
 
     return {
       webhookId: webhook.id,
-      pagination: { page, limit, total },
+      pagination: buildPaginationMeta(page, limit, total),
       data: deliveries.map((delivery) => this.toDeliveryResponse(delivery, webhook.url)),
     };
   }
