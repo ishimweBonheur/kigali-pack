@@ -38,7 +38,8 @@ export class AnalyticsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get aggregated analytics dashboard summary',
-    description: 'Optimized single-call summary combining usage, errors, latency, and top endpoints.',
+    description:
+      'Optimized single-call summary combining usage, errors, latency, and top endpoints.',
   })
   async getSummary(
     @Req() req: AuthenticatedRequest,

@@ -27,13 +27,17 @@ const AppDataSource = new DataSource({
 
 async function execute(): Promise<void> {
   try {
-    console.log('[run-seeder] Connecting to PostgreSQL via TypeORM DataSource...');
+    console.log(
+      '[run-seeder] Connecting to PostgreSQL via TypeORM DataSource...',
+    );
     console.log(
       `[run-seeder] Target: ${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || '5432'}/${process.env.DB_NAME || 'kigalipack_db'}`,
     );
 
     await AppDataSource.initialize();
-    console.log('[run-seeder] Connection established. Launching LocationSeeder.run()...');
+    console.log(
+      '[run-seeder] Connection established. Launching LocationSeeder.run()...',
+    );
 
     await LocationSeeder.run(AppDataSource);
 
@@ -42,7 +46,10 @@ async function execute(): Promise<void> {
     console.log('[run-seeder] DataSource destroyed. Exiting with code 0.');
     process.exit(0);
   } catch (error) {
-    console.error('[run-seeder] Fatal failure during database seeding execution:', error);
+    console.error(
+      '[run-seeder] Fatal failure during database seeding execution:',
+      error,
+    );
 
     if (AppDataSource.isInitialized) {
       await AppDataSource.destroy();

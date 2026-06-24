@@ -61,7 +61,12 @@ export class WebhookDeliveryEntity {
   @Column({ name: 'response_body', type: 'text', nullable: true })
   responseBody!: string | null;
 
-  @Column({ name: 'error_message', type: 'varchar', length: 500, nullable: true })
+  @Column({
+    name: 'error_message',
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+  })
   errorMessage!: string | null;
 
   @Column({ name: 'duration_ms', type: 'integer', nullable: true })

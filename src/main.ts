@@ -8,6 +8,7 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 import { GlobalHttpExceptionFilter } from './common/filters/http-exception.filter';
 import { AuditLogInterceptor } from './common/audit/audit-log.interceptor';
 import { RequestLoggingInterceptor } from './common/interceptors/request-logging.interceptor';
+import { TelemetryInterceptor } from './common/interceptors/telemetry.interceptor';
 import { DeprecationHeaderInterceptor } from './common/interceptors/deprecation-header.interceptor';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -52,6 +53,7 @@ async function bootstrap() {
     new ClassSerializerInterceptor(reflector),
     new TransformInterceptor(reflector),
     app.get(RequestLoggingInterceptor),
+    app.get(TelemetryInterceptor),
     app.get(DeprecationHeaderInterceptor),
     app.get(AuditLogInterceptor),
   );
@@ -68,7 +70,8 @@ async function bootstrap() {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'API Key',
-        description: 'Developer API key (kp_test_..., kp_live_..., kp_sandbox_...)',
+        description:
+          'Developer API key (kp_test_..., kp_live_..., kp_sandbox_...)',
       },
       'bearer',
     )
@@ -77,7 +80,8 @@ async function bootstrap() {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
-        description: 'JWT access token — paste ONLY the accessToken string from login/register (not refreshToken or full JSON)',
+        description:
+          'JWT access token — paste ONLY the accessToken string from login/register (not refreshToken or full JSON)',
       },
       'jwt',
     )
@@ -93,7 +97,10 @@ async function bootstrap() {
     .addTag('Developer Webhooks', 'Webhook registration and delivery')
     .addTag('Billing', 'Plans, subscriptions, and invoices')
     .addTag('Organizations', 'Teams, members, and RBAC')
-    .addTag('Utilities — Phone Intelligence', 'Rwanda phone validation and carrier detection')
+    .addTag(
+      'Utilities — Phone Intelligence',
+      'Rwanda phone validation and carrier detection',
+    )
     .addTag('Utilities — Test Data', 'Sandbox test data generators')
     .build();
 
@@ -103,9 +110,12 @@ async function bootstrap() {
   });
 
   const httpAdapter = app.getHttpAdapter();
-  httpAdapter.get('/docs', (_req: unknown, res: { redirect: (url: string) => void }) => {
-    res.redirect('/api/docs');
-  });
+  httpAdapter.get(
+    '/docs',
+    (_req: unknown, res: { redirect: (url: string) => void }) => {
+      res.redirect('/api/docs');
+    },
+  );
   httpAdapter.get(
     '/openapi.json',
     (_req: unknown, res: { redirect: (url: string) => void }) => {
@@ -126,8 +136,12 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`Kigali-Pack engine running on http://localhost:${port}`);
   console.log(`API version: ${apiVersion}`);
-  console.log(`Swagger docs available at http://localhost:${port}/docs (alias) and /api/docs`);
-  console.log(`OpenAPI JSON at http://localhost:${port}/openapi.json (alias) and /api/docs-json`);
+  console.log(
+    `Swagger docs available at http://localhost:${port}/docs (alias) and /api/docs`,
+  );
+  console.log(
+    `OpenAPI JSON at http://localhost:${port}/openapi.json (alias) and /api/docs-json`,
+  );
 }
 
 bootstrap();

@@ -23,9 +23,7 @@ describe('Kigali-Pack API (e2e)', () => {
         forbidNonWhitelisted: true,
       }),
     );
-    app.useGlobalInterceptors(
-      new TransformInterceptor(app.get(Reflector)),
-    );
+    app.useGlobalInterceptors(new TransformInterceptor(app.get(Reflector)));
     app.useGlobalFilters(new GlobalHttpExceptionFilter());
     await app.init();
   });

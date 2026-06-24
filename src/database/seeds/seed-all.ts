@@ -55,7 +55,11 @@ const RWANDA_LOCATION_GRAPH: LocationSeedNode[] = [
                 code: 'RW-CELL-KABEZA',
                 level: 'CELL',
                 children: [
-                  { name: 'Gikondo I', code: 'RW-VIL-GIKONDO1', level: 'VILLAGE' },
+                  {
+                    name: 'Gikondo I',
+                    code: 'RW-VIL-GIKONDO1',
+                    level: 'VILLAGE',
+                  },
                 ],
               },
             ],
@@ -77,7 +81,11 @@ const RWANDA_LOCATION_GRAPH: LocationSeedNode[] = [
                 code: 'RW-CELL-BIRYOGO',
                 level: 'CELL',
                 children: [
-                  { name: 'Biryogo I', code: 'RW-VIL-BIRYOGO1', level: 'VILLAGE' },
+                  {
+                    name: 'Biryogo I',
+                    code: 'RW-VIL-BIRYOGO1',
+                    level: 'VILLAGE',
+                  },
                 ],
               },
             ],
@@ -106,7 +114,11 @@ const RWANDA_LOCATION_GRAPH: LocationSeedNode[] = [
                 code: 'RW-CELL-KIGABIRO',
                 level: 'CELL',
                 children: [
-                  { name: 'Kigabiro I', code: 'RW-VIL-KIGABIRO1', level: 'VILLAGE' },
+                  {
+                    name: 'Kigabiro I',
+                    code: 'RW-VIL-KIGABIRO1',
+                    level: 'VILLAGE',
+                  },
                 ],
               },
             ],
@@ -164,7 +176,11 @@ const RWANDA_LOCATION_GRAPH: LocationSeedNode[] = [
                 code: 'RW-CELL-MATYAZO',
                 level: 'CELL',
                 children: [
-                  { name: 'Matyazo I', code: 'RW-VIL-MATYAZO1', level: 'VILLAGE' },
+                  {
+                    name: 'Matyazo I',
+                    code: 'RW-VIL-MATYAZO1',
+                    level: 'VILLAGE',
+                  },
                 ],
               },
             ],
@@ -193,7 +209,11 @@ const RWANDA_LOCATION_GRAPH: LocationSeedNode[] = [
                 code: 'RW-CELL-NYAMYUMBA',
                 level: 'CELL',
                 children: [
-                  { name: 'Nyamyumba I', code: 'RW-VIL-NYAMYUMBA1', level: 'VILLAGE' },
+                  {
+                    name: 'Nyamyumba I',
+                    code: 'RW-VIL-NYAMYUMBA1',
+                    level: 'VILLAGE',
+                  },
                 ],
               },
             ],
@@ -315,22 +335,31 @@ async function seedApiLogs(apiKeyId: string): Promise<number> {
     const responseTimeMs = responseTimes[index % responseTimes.length];
     const offsetMinutes = index * 7;
 
-    const base = index * 6;
+    const base = index * 10;
+    const isTransient = endpoint.includes('/rra/');
     placeholders.push(
-      `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, NOW() - ($${base + 6} || ' minutes')::interval)`,
+      `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, NOW() - ($${base + 10} || ' minutes')::interval)`,
     );
     values.push(
+      apiKeyId,
       apiKeyId,
       endpoint,
       method,
       statusCode,
       responseTimeMs,
+      isTransient
+        ? '[TRANSIENT — raw input not persisted]'
+        : '[REDACTED — request]',
+      isTransient
+        ? '[TRANSIENT — structural output only]'
+        : '[REDACTED — response]',
+      isTransient ? 'transient' : 'stateful',
       String(offsetMinutes),
     );
   }
 
   await AppDataSource.query(
-    `INSERT INTO developer_api_logs (api_key_id, endpoint, method, status_code, response_time_ms, timestamp)
+    `INSERT INTO developer_api_logs (api_key_id, developer_id, endpoint, method, status_code, response_time_ms, masked_request_snapshot, masked_response_snapshot, processing_mode, timestamp)
      VALUES ${placeholders.join(', ')}`,
     values,
   );

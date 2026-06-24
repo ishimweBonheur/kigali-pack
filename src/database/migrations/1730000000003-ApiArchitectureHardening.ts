@@ -31,7 +31,9 @@ export class ApiArchitectureHardening1730000000003 implements MigrationInterface
     await queryRunner.query(
       `ALTER TABLE "webhook_deliveries" DROP COLUMN IF EXISTS "duration_ms"`,
     );
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_refresh_tokens_token_hash"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_refresh_tokens_token_hash"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "refresh_tokens"`);
   }
 }

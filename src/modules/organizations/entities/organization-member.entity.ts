@@ -11,6 +11,8 @@ import {
 import { OrganizationEntity } from './organization.entity';
 
 export enum OrganizationRole {
+  /** Platform master administrator */
+  MASTER_ADMIN = 'MASTER_ADMIN',
   /** @deprecated Use ORG_OWNER */
   OWNER = 'OWNER',
   ADMIN = 'ADMIN',

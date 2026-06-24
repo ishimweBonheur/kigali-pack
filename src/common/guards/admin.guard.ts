@@ -57,6 +57,7 @@ export class AdminGuard implements CanActivate {
       request.member = payload;
 
       if (
+        payload.role !== OrganizationRole.MASTER_ADMIN &&
         payload.role !== OrganizationRole.ADMIN &&
         payload.role !== OrganizationRole.OWNER &&
         payload.role !== OrganizationRole.ORG_OWNER

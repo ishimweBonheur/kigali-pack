@@ -36,7 +36,12 @@ export class ApiKeyEntity {
   })
   environment!: ApiKeyEnvironment;
 
-  @Column({ name: 'tier', type: 'varchar', length: 50, default: ApiKeyTier.FREE })
+  @Column({
+    name: 'tier',
+    type: 'varchar',
+    length: 50,
+    default: ApiKeyTier.FREE,
+  })
   tier!: ApiKeyTier;
 
   @Column({ name: 'is_active', type: 'boolean', default: true })

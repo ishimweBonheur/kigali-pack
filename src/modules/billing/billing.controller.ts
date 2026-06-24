@@ -20,6 +20,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { DeprecatedEndpoint } from '../../common/decorators/deprecated-endpoint.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { TierThrottlerGuard } from '../../common/guards/tier-throttler.guard';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -43,6 +44,7 @@ export class BillingController {
   constructor(private readonly billingService: BillingService) {}
 
   @Get('plans')
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'List available billing plans (public)' })
   @ApiResponse({ status: 200, type: ApiSuccessResponseDto })
@@ -60,7 +62,8 @@ export class BillingController {
     const developerName = await this.billingService.resolveDeveloperNameFromJwt(
       req.member,
     );
-    const subscription = await this.billingService.getSubscription(developerName);
+    const subscription =
+      await this.billingService.getSubscription(developerName);
     return {
       data: subscription,
       message: 'Current subscription retrieved successfully',
@@ -76,7 +79,9 @@ export class BillingController {
     @Req() req: JwtRequest,
     @Body() dto: SubscribeDto,
   ) {
-    const developer = await this.billingService.resolveApiKeyFromJwt(req.member);
+    const developer = await this.billingService.resolveApiKeyFromJwt(
+      req.member,
+    );
     const result = await this.billingService.subscribe(developer, dto.planCode);
     return { data: result, message: 'Subscription created successfully' };
   }
@@ -87,7 +92,9 @@ export class BillingController {
   @UseGuards(JwtAuthGuard, TierThrottlerGuard)
   @ApiOperation({ summary: 'Cancel current subscription (JWT)' })
   async cancelCurrentSubscriptionJwt(@Req() req: JwtRequest) {
-    const developer = await this.billingService.resolveApiKeyFromJwt(req.member);
+    const developer = await this.billingService.resolveApiKeyFromJwt(
+      req.member,
+    );
     const result = await this.billingService.cancel(developer);
     return { data: result, message: 'Subscription cancelled successfully' };
   }
@@ -101,7 +108,8 @@ export class BillingController {
   @ApiBearerAuth()
   @UseGuards(ApiKeyGuard, TierThrottlerGuard)
   @ApiOperation({
-    summary: 'Get current subscription (deprecated — use GET /subscriptions/current with JWT)',
+    summary:
+      'Get current subscription (deprecated — use GET /subscriptions/current with JWT)',
     deprecated: true,
   })
   async getSubscription(@Req() req: AuthenticatedRequest) {
@@ -110,7 +118,8 @@ export class BillingController {
     );
     return {
       data: subscription,
-      message: 'Current subscription retrieved successfully (deprecated endpoint)',
+      message:
+        'Current subscription retrieved successfully (deprecated endpoint)',
     };
   }
 
@@ -123,14 +132,15 @@ export class BillingController {
   @ApiBearerAuth()
   @UseGuards(ApiKeyGuard, TierThrottlerGuard)
   @ApiOperation({
-    summary: 'Subscribe to a billing plan (deprecated — use POST /subscriptions with JWT)',
+    summary:
+      'Subscribe to a billing plan (deprecated — use POST /subscriptions with JWT)',
     deprecated: true,
   })
-  async subscribe(
-    @Req() req: AuthenticatedRequest,
-    @Body() dto: SubscribeDto,
-  ) {
-    const result = await this.billingService.subscribe(req.developer, dto.planCode);
+  async subscribe(@Req() req: AuthenticatedRequest, @Body() dto: SubscribeDto) {
+    const result = await this.billingService.subscribe(
+      req.developer,
+      dto.planCode,
+    );
     return {
       data: result,
       message: 'Subscription created successfully (deprecated endpoint)',
@@ -146,7 +156,8 @@ export class BillingController {
   @ApiBearerAuth()
   @UseGuards(ApiKeyGuard, TierThrottlerGuard)
   @ApiOperation({
-    summary: 'Cancel active subscription (deprecated — use DELETE /subscriptions/current with JWT)',
+    summary:
+      'Cancel active subscription (deprecated — use DELETE /subscriptions/current with JWT)',
     deprecated: true,
   })
   async cancel(@Req() req: AuthenticatedRequest) {
@@ -161,7 +172,9 @@ export class BillingController {
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'List historical invoices for the organization (JWT)' })
+  @ApiOperation({
+    summary: 'List historical invoices for the organization (JWT)',
+  })
   @ApiResponse({ status: 200, type: ApiSuccessResponseDto })
   async listInvoices(
     @Req() req: JwtRequest,

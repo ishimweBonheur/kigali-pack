@@ -1,14 +1,14 @@
-const JWT_PATTERN =
-  /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/;
+const JWT_PATTERN = /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/;
 
-const API_KEY_PATTERN =
-  /kp_(?:test|live|sandbox)_[A-Za-z0-9]+/;
+const API_KEY_PATTERN = /kp_(?:test|live|sandbox)_[A-Za-z0-9]+/;
 
 /**
  * Normalizes Bearer credentials — handles common Swagger paste mistakes such as
  * copying the full login JSON instead of only accessToken.
  */
-export function extractBearerToken(authHeader: string | undefined): string | null {
+export function extractBearerToken(
+  authHeader: string | undefined,
+): string | null {
   if (!authHeader?.startsWith('Bearer ')) {
     return null;
   }
@@ -18,9 +18,7 @@ export function extractBearerToken(authHeader: string | undefined): string | nul
     return null;
   }
 
-  const embeddedAccessToken = raw.match(
-    /"accessToken"\s*:\s*"([^"]+)"/,
-  )?.[1];
+  const embeddedAccessToken = raw.match(/"accessToken"\s*:\s*"([^"]+)"/)?.[1];
   if (embeddedAccessToken) {
     return embeddedAccessToken;
   }

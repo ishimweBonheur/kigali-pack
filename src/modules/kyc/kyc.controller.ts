@@ -20,6 +20,7 @@ import {
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { TierThrottlerGuard } from '../../common/guards/tier-throttler.guard';
 import { Public } from '../../common/decorators/public.decorator';
+import { TransientProcessing } from '../../common/decorators/transient-processing.decorator';
 import { CalculateTaxDto } from './dto/calculate-tax.dto';
 import { RraPayrollService } from './rra-payroll.service';
 import {
@@ -39,7 +40,10 @@ export class KycController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Mock NIDA identity lookup by national ID' })
   @ApiParam({ name: 'nationalId', example: '1200780064278123' })
-  @ApiResponse({ status: 200, description: 'Contextual sandbox identity profile returned' })
+  @ApiResponse({
+    status: 200,
+    description: 'Contextual sandbox identity profile returned',
+  })
   async runMockKycProfileLookup(
     @Param('nationalId') nationalId: string,
     @Req() req: AuthenticatedRequest,
@@ -78,6 +82,7 @@ export class KycController {
   }
 
   @Post('rra/taxes')
+  @TransientProcessing()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Compute RRA PAYE and VAT breakdown' })
   @ApiResponse({ status: 200, type: ApiSuccessResponseDto })
@@ -98,6 +103,7 @@ export class KycController {
   }
 
   @Post('rra/rssb')
+  @TransientProcessing()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Calculate RSSB pension and maternity contributions',
@@ -114,6 +120,7 @@ export class KycController {
   }
 
   @Post('rra/payroll-summary')
+  @TransientProcessing()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Full payroll summary combining PAYE and RSSB deductions',

@@ -20,6 +20,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { DeprecatedEndpoint } from '../../common/decorators/deprecated-endpoint.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { TierThrottlerGuard } from '../../common/guards/tier-throttler.guard';
 import { LocationsCacheInterceptor } from '../../common/cache/locations-cache.interceptor';
@@ -39,6 +40,7 @@ export class LocationsController {
   constructor(private readonly locationsService: LocationsService) {}
 
   @Get('root-provinces')
+  @Public()
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(LocationsCacheInterceptor)
   @ApiOperation({
@@ -49,7 +51,10 @@ export class LocationsController {
   @ApiResponse({ status: 400, type: ApiErrorResponseDto })
   async getProvinces() {
     const provinces = await this.locationsService.getRootProvinces();
-    return { data: provinces, message: 'Root provinces retrieved successfully' };
+    return {
+      data: provinces,
+      message: 'Root provinces retrieved successfully',
+    };
   }
 
   @Get('children')
@@ -73,11 +78,8 @@ export class LocationsController {
   ) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 50;
-    const { items, pagination } = await this.locationsService.getChildrenByParentId(
-      parentId,
-      page,
-      limit,
-    );
+    const { items, pagination } =
+      await this.locationsService.getChildrenByParentId(parentId, page, limit);
     return {
       data: items,
       pagination,
@@ -117,7 +119,8 @@ export class LocationsController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Normalize address via query string (deprecated)',
-    description: 'Deprecated — use POST /v1/locations/normalize with JSON body.',
+    description:
+      'Deprecated — use POST /v1/locations/normalize with JSON body.',
     deprecated: true,
   })
   @ApiQuery({ name: 'rawAddress', required: false, type: String })
@@ -143,7 +146,9 @@ export class LocationsController {
   @UseGuards(ApiKeyGuard, TierThrottlerGuard)
   @ApiBearerAuth('bearer')
   @ApiBearerAuth('jwt')
-  @ApiOperation({ summary: 'List child administrative units by parent ID (RESTful)' })
+  @ApiOperation({
+    summary: 'List child administrative units by parent ID (RESTful)',
+  })
   @ApiParam({ name: 'parentId', format: 'uuid' })
   @ApiResponse({ status: 200, type: ApiSuccessResponseDto })
   async getChildrenByParentId(
@@ -152,11 +157,8 @@ export class LocationsController {
   ) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 50;
-    const { items, pagination } = await this.locationsService.getChildrenByParentId(
-      parentId,
-      page,
-      limit,
-    );
+    const { items, pagination } =
+      await this.locationsService.getChildrenByParentId(parentId, page, limit);
     return {
       data: items,
       pagination,

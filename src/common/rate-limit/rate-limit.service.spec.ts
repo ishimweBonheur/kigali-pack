@@ -74,7 +74,10 @@ describe('RateLimitService', () => {
 
   describe('checkRateLimit', () => {
     it('should bypass Redis for ENTERPRISE tier', async () => {
-      const result = await service.checkRateLimit('key-id', ApiKeyTier.ENTERPRISE);
+      const result = await service.checkRateLimit(
+        'key-id',
+        ApiKeyTier.ENTERPRISE,
+      );
 
       expect(result.exceeded).toBe(false);
       expect(result.limit).toBe(0);

@@ -24,6 +24,7 @@
     "seed": "ts-node src/database/seeds/seed-all.ts",
     "seed:api-key": "ts-node src/database/seeds/seed-test-api-key.ts",
     "seed:billing": "ts-node src/database/seeds/seed-billing-plans.ts",
+    "seed:master-admin": "ts-node src/database/seeds/seed-master-admin.ts",
     "db:seed:locations": "ts-node src/database/seeds/run-seeder.ts",
     "openapi:export": "ts-node scripts/export-openapi.ts",
     "sdk:generate": "ts-node scripts/generate-sdk.ts",

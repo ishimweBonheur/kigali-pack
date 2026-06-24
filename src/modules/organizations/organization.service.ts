@@ -186,7 +186,11 @@ export class OrganizationService {
     };
   }
 
-  async listMembers(orgId: string, requesterId: string, query: PaginationQueryDto) {
+  async listMembers(
+    orgId: string,
+    requesterId: string,
+    query: PaginationQueryDto,
+  ) {
     await this.assertMember(orgId, requesterId);
 
     const page = query.page ?? 1;

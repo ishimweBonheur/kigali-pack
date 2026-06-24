@@ -94,7 +94,9 @@ function isProvincesWrapper(
   );
 }
 
-function resolveRootProvinces(dataset: unknown): RawNestedNode[] | FlatRwandaRecord[] {
+function resolveRootProvinces(
+  dataset: unknown,
+): RawNestedNode[] | FlatRwandaRecord[] {
   if (Array.isArray(dataset)) {
     return dataset;
   }
@@ -132,11 +134,15 @@ function normalizeNestedNode(
   const code = trimValue(node.code);
 
   if (!name) {
-    throw new Error(`Encountered ${level} node without a name during normalization.`);
+    throw new Error(
+      `Encountered ${level} node without a name during normalization.`,
+    );
   }
 
   if (!code) {
-    throw new Error(`Encountered ${level} node "${name}" without a code during normalization.`);
+    throw new Error(
+      `Encountered ${level} node "${name}" without a code during normalization.`,
+    );
   }
 
   const normalized: LocationTreeNode = {
@@ -151,10 +157,7 @@ function normalizeNestedNode(
   }
 
   const childLevel = CHILD_LEVEL[level];
-  const rawChildren = resolveNestedChildren(
-    node,
-    level as Exclude<AdministrativeUnitLevel, 'VILLAGE'>,
-  );
+  const rawChildren = resolveNestedChildren(node, level);
 
   normalized.children = rawChildren.map((child) =>
     normalizeNestedNode(child, childLevel),
@@ -163,7 +166,9 @@ function normalizeNestedNode(
   return normalized;
 }
 
-function buildTreeFromFlatRecords(records: FlatRwandaRecord[]): LocationTreeNode[] {
+function buildTreeFromFlatRecords(
+  records: FlatRwandaRecord[],
+): LocationTreeNode[] {
   const provinceMap = new Map<string, LocationTreeNode>();
 
   for (const row of records) {
@@ -290,7 +295,9 @@ export class LocationSeeder {
     const tree = buildLocationTree(rwandaDataset);
 
     if (tree.length === 0) {
-      console.warn('[LocationSeeder] No administrative units resolved from dataset.');
+      console.warn(
+        '[LocationSeeder] No administrative units resolved from dataset.',
+      );
       return;
     }
 
@@ -359,7 +366,9 @@ export class LocationSeeder {
       );
     });
 
-    console.log('[LocationSeeder] Atomic seeding transaction committed successfully.');
+    console.log(
+      '[LocationSeeder] Atomic seeding transaction committed successfully.',
+    );
   }
 
   private static async processNodesRecursively(

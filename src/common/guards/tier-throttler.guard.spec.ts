@@ -87,7 +87,9 @@ describe('TierThrottlerGuard', () => {
     });
 
     const context = createExecutionContext(developer);
-    const response = context.switchToHttp().getResponse<{ setHeader: jest.Mock }>();
+    const response = context
+      .switchToHttp()
+      .getResponse<{ setHeader: jest.Mock }>();
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
 
@@ -119,13 +121,18 @@ describe('TierThrottlerGuard', () => {
     });
 
     const context = createExecutionContext(developer);
-    const response = context.switchToHttp().getResponse<{ setHeader: jest.Mock }>();
+    const response = context
+      .switchToHttp()
+      .getResponse<{ setHeader: jest.Mock }>();
 
     await expect(guard.canActivate(context)).rejects.toMatchObject({
       status: HttpStatus.TOO_MANY_REQUESTS,
     });
 
-    expect(response.setHeader).toHaveBeenCalledWith('Retry-After', expect.any(String));
+    expect(response.setHeader).toHaveBeenCalledWith(
+      'Retry-After',
+      expect.any(String),
+    );
   });
 
   it('should include tier metadata in the 429 payload', async () => {

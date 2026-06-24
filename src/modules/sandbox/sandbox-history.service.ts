@@ -3,7 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MockTransactionEntity } from './entities/mock-transaction.entity';
 import { SandboxHistoryQueryDto } from './dto/sandbox-query.dto';
-import { buildPaginationMeta, paginateOffset } from '../../common/utils/pagination.util';
+import {
+  buildPaginationMeta,
+  paginateOffset,
+} from '../../common/utils/pagination.util';
 
 @Injectable()
 export class SandboxHistoryService {
@@ -28,7 +31,9 @@ export class SandboxHistoryService {
     }
 
     if (query.gateway) {
-      qb.andWhere('tx.gateway = :gateway', { gateway: query.gateway.toUpperCase() });
+      qb.andWhere('tx.gateway = :gateway', {
+        gateway: query.gateway.toUpperCase(),
+      });
     }
 
     const sortColumn =

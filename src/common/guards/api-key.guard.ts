@@ -10,9 +10,7 @@ import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as crypto from 'crypto';
 import { ApiKeyEntity } from '../../modules/auth/entities/api-key.entity';
-import { ApiLogEntity } from '../../modules/analytics/entities/api-log.entity';
 import { ApiKeyService } from '../../modules/auth/api-key.service';
-import { UsageMeteringService } from '../../modules/analytics/usage-metering.service';
 import { OrganizationEntity } from '../../modules/organizations/entities/organization.entity';
 import { JwtPayload } from '../../modules/organizations/organization.service';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
@@ -26,12 +24,9 @@ export class ApiKeyGuard implements CanActivate {
   constructor(
     @InjectRepository(ApiKeyEntity)
     private readonly apiKeyRepo: Repository<ApiKeyEntity>,
-    @InjectRepository(ApiLogEntity)
-    private readonly apiLogRepo: Repository<ApiLogEntity>,
     @InjectRepository(OrganizationEntity)
     private readonly orgRepo: Repository<OrganizationEntity>,
     private readonly apiKeyService: ApiKeyService,
-    private readonly usageMeteringService: UsageMeteringService,
     private readonly jwtService: JwtService,
     private readonly reflector: Reflector,
   ) {}
@@ -68,13 +63,10 @@ export class ApiKeyGuard implements CanActivate {
     rawToken: string,
   ): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const response = context.switchToHttp().getResponse();
     const hashedToken = crypto
       .createHash('sha256')
       .update(rawToken)
       .digest('hex');
-
-    const trackingStartTime = Date.now();
 
     const keyRecord = await this.apiKeyRepo.findOne({
       where: { hashedKey: hashedToken, isActive: true },
@@ -86,12 +78,7 @@ export class ApiKeyGuard implements CanActivate {
       );
     }
 
-    return this.attachDeveloperContext(
-      request,
-      response,
-      keyRecord,
-      trackingStartTime,
-    );
+    return this.attachDeveloperContext(request, keyRecord);
   }
 
   private async authenticateWithJwt(
@@ -99,8 +86,6 @@ export class ApiKeyGuard implements CanActivate {
     rawToken: string,
   ): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const response = context.switchToHttp().getResponse();
-    const trackingStartTime = Date.now();
 
     let payload: JwtPayload;
     try {
@@ -123,12 +108,7 @@ export class ApiKeyGuard implements CanActivate {
       `${org.name} — default`,
     );
 
-    return this.attachDeveloperContext(
-      request,
-      response,
-      keyRecord,
-      trackingStartTime,
-    );
+    return this.attachDeveloperContext(request, keyRecord);
   }
 
   private attachDeveloperContext(
@@ -138,44 +118,12 @@ export class ApiKeyGuard implements CanActivate {
       method: string;
       developer?: ApiKeyEntity;
     },
-    response: {
-      statusCode: number;
-      on: (event: string, listener: () => void) => void;
-    },
     keyRecord: ApiKeyEntity,
-    trackingStartTime: number,
   ): boolean {
     request.developer = keyRecord;
 
     void this.apiKeyService.touchLastUsed(keyRecord.id).catch(() => {
       /* non-blocking last-used update */
-    });
-
-    response.on('finish', async () => {
-      const executionDurationMs = Date.now() - trackingStartTime;
-      const endpoint = request.route ? request.route.path : request.url;
-      try {
-        const logMetricsRecord = this.apiLogRepo.create({
-          apiKey: keyRecord,
-          endpoint,
-          method: request.method,
-          statusCode: response.statusCode,
-          responseTimeMs: executionDurationMs,
-        });
-        await this.apiLogRepo.save(logMetricsRecord);
-        void this.usageMeteringService
-          .recordRequest(
-            keyRecord.id,
-            endpoint,
-            executionDurationMs,
-            response.statusCode,
-          )
-          .catch(() => {
-            /* non-blocking usage metering */
-          });
-      } catch {
-        /* telemetry failures must not affect the request */
-      }
     });
 
     return true;

@@ -3,7 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AdministrativeUnitEntity } from './entities/administrative-unit.entity';
 import { CacheService } from '../../common/cache/cache.service';
-import { buildPaginationMeta, paginateOffset } from '../../common/utils/pagination.util';
+import {
+  buildPaginationMeta,
+  paginateOffset,
+} from '../../common/utils/pagination.util';
 
 const NORMALIZE_CACHE_TTL = 600;
 
@@ -22,11 +25,7 @@ export class LocationsService {
     });
   }
 
-  async getChildrenByParentId(
-    parentId: string,
-    page = 1,
-    limit = 50,
-  ) {
+  async getChildrenByParentId(parentId: string, page = 1, limit = 50) {
     const offset = paginateOffset(page, limit);
 
     const [items, total] = await this.locationRepo.findAndCount({
@@ -44,7 +43,8 @@ export class LocationsService {
 
   async normalizeAddress(rawAddress: string): Promise<Record<string, unknown>> {
     const cacheKey = `locations:normalize:${rawAddress.toLowerCase().trim()}`;
-    const cached = await this.cacheService.get<Record<string, unknown>>(cacheKey);
+    const cached =
+      await this.cacheService.get<Record<string, unknown>>(cacheKey);
     if (cached) {
       return { ...cached, cached: true };
     }

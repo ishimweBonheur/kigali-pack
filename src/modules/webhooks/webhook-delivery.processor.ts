@@ -16,6 +16,7 @@ import {
   WebhookDeliveryJob,
   WebhookService,
 } from './webhook.service';
+import { WEBHOOK_SIGNATURE_HEADER } from '../../common/utils/webhook-signing.util';
 
 @Processor(WEBHOOK_DELIVERY_QUEUE)
 export class WebhookDeliveryProcessor extends WorkerHost {
@@ -51,7 +52,7 @@ export class WebhookDeliveryProcessor extends WorkerHost {
       data: delivery.payload,
     });
     const timestamp = Math.floor(Date.now() / 1000);
-    const signature = this.webhookService.signPayload(
+    const signatureHeader = this.webhookService.buildSignatureHeader(
       delivery.webhook.secret,
       payloadString,
       timestamp,
@@ -66,8 +67,7 @@ export class WebhookDeliveryProcessor extends WorkerHost {
         this.httpService.post(delivery.webhook.url, payloadString, {
           headers: {
             'Content-Type': 'application/json',
-            'X-Kigali-Pack-Signature': signature,
-            'X-Kigali-Pack-Timestamp': String(timestamp),
+            [WEBHOOK_SIGNATURE_HEADER]: signatureHeader,
             'X-Kigali-Pack-Event': delivery.eventType,
           },
           timeout: 10_000,

@@ -178,12 +178,10 @@ export class PlatformExpansion1730000000002 implements MigrationInterface {
 
     await queryRunner.query(`
       CREATE INDEX "IDX_developer_api_logs_api_key_endpoint"
-        ON "developer_api_logs" ("api_key_id", "endpoint")`,
-    );
+        ON "developer_api_logs" ("api_key_id", "endpoint")`);
     await queryRunner.query(`
       CREATE INDEX "IDX_developer_api_logs_status_code"
-        ON "developer_api_logs" ("status_code")`,
-    );
+        ON "developer_api_logs" ("status_code")`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

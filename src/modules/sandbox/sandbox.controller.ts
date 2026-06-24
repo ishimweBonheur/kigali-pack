@@ -188,7 +188,8 @@ export class SandboxController {
   @Get('test-accounts')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'List sandbox test accounts and amount triggers for payment simulation',
+    summary:
+      'List sandbox test accounts and amount triggers for payment simulation',
   })
   async listTestAccounts() {
     return {
@@ -214,7 +215,8 @@ export class SandboxController {
   @Get('history')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'List sandbox payment transaction history with filtering and sorting',
+    summary:
+      'List sandbox payment transaction history with filtering and sorting',
   })
   async listHistory(
     @Req() req: AuthenticatedRequest,

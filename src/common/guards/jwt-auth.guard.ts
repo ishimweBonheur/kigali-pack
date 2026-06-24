@@ -34,7 +34,10 @@ const ROLE_ALIASES: Partial<Record<OrganizationRole, OrganizationRole[]>> = {
   ],
 };
 
-function roleMatches(memberRole: OrganizationRole, required: OrganizationRole): boolean {
+function roleMatches(
+  memberRole: OrganizationRole,
+  required: OrganizationRole,
+): boolean {
   const aliases = ROLE_ALIASES[required] ?? [required];
   return aliases.includes(memberRole);
 }
@@ -91,7 +94,9 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest<{ member?: JwtPayload }>();
+    const request = context
+      .switchToHttp()
+      .getRequest<{ member?: JwtPayload }>();
     const member = request.member;
 
     if (!member) {

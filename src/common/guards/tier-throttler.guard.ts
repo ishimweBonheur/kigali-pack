@@ -31,14 +31,14 @@ export class TierThrottlerGuard implements CanActivate {
     );
 
     response.setHeader(RATE_LIMIT_HEADERS.LIMIT, String(result.limit));
-    response.setHeader(
-      RATE_LIMIT_HEADERS.REMAINING,
-      String(result.remaining),
-    );
+    response.setHeader(RATE_LIMIT_HEADERS.REMAINING, String(result.remaining));
     response.setHeader(RATE_LIMIT_HEADERS.RESET, String(result.reset));
 
     if (result.exceeded) {
-      const retryAfterSeconds = Math.max(result.reset - Math.floor(Date.now() / 1000), 1);
+      const retryAfterSeconds = Math.max(
+        result.reset - Math.floor(Date.now() / 1000),
+        1,
+      );
       response.setHeader('Retry-After', String(retryAfterSeconds));
 
       throw new HttpException(

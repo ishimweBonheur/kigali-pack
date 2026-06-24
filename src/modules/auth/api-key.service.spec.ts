@@ -109,7 +109,9 @@ describe('ApiKeyService', () => {
       };
 
       apiKeyRepo.findOne.mockResolvedValue(null);
-      apiKeyRepo.create.mockImplementation((payload) => payload as ApiKeyEntity);
+      apiKeyRepo.create.mockImplementation(
+        (payload) => payload as ApiKeyEntity,
+      );
       apiKeyRepo.save.mockImplementation(async (entity) => ({
         ...(entity as ApiKeyEntity),
         id: 'new-key-id',
@@ -152,7 +154,9 @@ describe('ApiKeyService', () => {
       };
 
       apiKeyRepo.findOne.mockResolvedValue(target);
-      apiKeyRepo.save.mockImplementation(async (entity) => entity as ApiKeyEntity);
+      apiKeyRepo.save.mockImplementation(
+        async (entity) => entity as ApiKeyEntity,
+      );
 
       const result = await service.revoke(owner, 'target-id');
 

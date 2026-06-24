@@ -28,10 +28,14 @@ export class AuditLogInterceptor implements NestInterceptor {
       member?: { sub?: string; email?: string };
       developer?: { id?: string; developerName?: string };
     }>();
-    const response = context.switchToHttp().getResponse<{ statusCode?: number }>();
+    const response = context
+      .switchToHttp()
+      .getResponse<{ statusCode?: number }>();
 
     const path = request.url?.split('?')[0] ?? '';
-    const shouldAudit = AUDITED_PREFIXES.some((prefix) => path.startsWith(prefix));
+    const shouldAudit = AUDITED_PREFIXES.some((prefix) =>
+      path.startsWith(prefix),
+    );
 
     if (!shouldAudit) {
       return next.handle();

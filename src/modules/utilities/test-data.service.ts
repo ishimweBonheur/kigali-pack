@@ -4,13 +4,36 @@ import { Repository } from 'typeorm';
 import { AdministrativeUnitEntity } from '../locations/entities/administrative-unit.entity';
 
 const RWANDAN_FIRST_NAMES = [
-  'Jean', 'Marie', 'Patrick', 'Grace', 'Emmanuel', 'Alice', 'Eric', 'Divine',
-  'Fabrice', 'Claudine', 'Olivier', 'Sandrine', 'Didier', 'Immaculee', 'Moise',
+  'Jean',
+  'Marie',
+  'Patrick',
+  'Grace',
+  'Emmanuel',
+  'Alice',
+  'Eric',
+  'Divine',
+  'Fabrice',
+  'Claudine',
+  'Olivier',
+  'Sandrine',
+  'Didier',
+  'Immaculee',
+  'Moise',
 ];
 
 const RWANDAN_LAST_NAMES = [
-  'Mugisha', 'Uwimana', 'Habimana', 'Nyirahabimana', 'Niyonsenga', 'Mukamana',
-  'Bizimana', 'Uwineza', 'Nshimiyimana', 'Murekatete', 'Iradukunda', 'Kamanzi',
+  'Mugisha',
+  'Uwimana',
+  'Habimana',
+  'Nyirahabimana',
+  'Niyonsenga',
+  'Mukamana',
+  'Bizimana',
+  'Uwineza',
+  'Nshimiyimana',
+  'Murekatete',
+  'Iradukunda',
+  'Kamanzi',
 ];
 
 const GENDERS = ['MALE', 'FEMALE'] as const;
@@ -51,7 +74,13 @@ export class TestDataService {
       birthYear,
       phoneNumber: `+2507${gender === 'MALE' ? '8' : '2'}${String(this.randomInt(1000000, 9999999))}`,
       civilStatus: this.randomItem(['SINGLE', 'MARRIED', 'DIVORCED']),
-      province: this.randomItem(['Kigali City', 'Eastern Province', 'Southern Province', 'Western Province', 'Northern Province']),
+      province: this.randomItem([
+        'Kigali City',
+        'Eastern Province',
+        'Southern Province',
+        'Western Province',
+        'Northern Province',
+      ]),
     };
   }
 

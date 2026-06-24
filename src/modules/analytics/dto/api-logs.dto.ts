@@ -9,7 +9,10 @@ export class ApiLogsQueryDto extends PaginationQueryDto {
   @IsIn(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
   method?: string;
 
-  @ApiPropertyOptional({ example: 400, description: 'Filter by HTTP status code' })
+  @ApiPropertyOptional({
+    example: 400,
+    description: 'Filter by HTTP status code',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -18,16 +21,23 @@ export class ApiLogsQueryDto extends PaginationQueryDto {
 
 export interface ApiLogListItem {
   id: string;
+  developerId: string;
   method: string;
   routePath: string;
   httpStatusCode: number;
   executionTimeMs: number;
+  processingMode: 'transient' | 'stateful';
   clientIp: string | null;
   maskedPayloadSnapshot: {
     request: string;
     response: string;
   };
-  createdAt: Date;
+  createdAt: string;
+  /** @deprecated Frontend analytics table aliases */
+  endpoint?: string;
+  statusCode?: number;
+  latencyMs?: number;
+  timestamp?: string;
 }
 
 export interface ApiLogDetail extends ApiLogListItem {

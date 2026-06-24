@@ -22,7 +22,9 @@ export class AuthRateLimitGuard implements CanActivate {
 
     const forwarded = request.headers['x-forwarded-for'];
     const clientIp =
-      (typeof forwarded === 'string' ? forwarded.split(',')[0]?.trim() : null) ??
+      (typeof forwarded === 'string'
+        ? forwarded.split(',')[0]?.trim()
+        : null) ??
       request.ip ??
       'unknown';
 

@@ -10,8 +10,6 @@ import { JwtModule } from '@nestjs/jwt';
 
 import { BullModule } from '@nestjs/bullmq';
 
-
-
 import { ApiKeyEntity } from './modules/auth/entities/api-key.entity';
 
 import { RefreshTokenEntity } from './modules/auth/entities/refresh-token.entity';
@@ -39,8 +37,6 @@ import { InvoiceEntity } from './modules/billing/entities/invoice.entity';
 import { OrganizationEntity } from './modules/organizations/entities/organization.entity';
 
 import { OrganizationMemberEntity } from './modules/organizations/entities/organization-member.entity';
-
-
 
 import { HealthController } from './modules/health/health.controller';
 
@@ -70,8 +66,6 @@ import { PhoneController } from './modules/utilities/phone.controller';
 
 import { TestDataController } from './modules/utilities/test-data.controller';
 
-
-
 import { ApiKeyService } from './modules/auth/api-key.service';
 
 import { AuthService } from './modules/auth/auth.service';
@@ -93,13 +87,9 @@ import { AnalyticsService } from './modules/analytics/analytics.service';
 import { SandboxHistoryService } from './modules/sandbox/sandbox-history.service';
 
 import {
-
   WebhookService,
-
   WEBHOOK_DELIVERY_QUEUE,
-
   WEBHOOK_DLQ,
-
 } from './modules/webhooks/webhook.service';
 
 import { WebhookDeliveryProcessor } from './modules/webhooks/webhook-delivery.processor';
@@ -131,6 +121,7 @@ import { AuditLogInterceptor } from './common/audit/audit-log.interceptor';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 
 import { RequestLoggingInterceptor } from './common/interceptors/request-logging.interceptor';
+import { TelemetryInterceptor } from './common/interceptors/telemetry.interceptor';
 
 import { DeprecationHeaderInterceptor } from './common/interceptors/deprecation-header.interceptor';
 
@@ -140,10 +131,9 @@ import { InternalGuard } from './common/guards/internal.guard';
 
 import { AuthRateLimitGuard } from './common/guards/auth-rate-limit.guard';
 
-
+import { AdminModule } from './modules/admin/admin.module';
 
 const ENTITIES = [
-
   ApiKeyEntity,
 
   RefreshTokenEntity,
@@ -171,37 +161,25 @@ const ENTITIES = [
   OrganizationEntity,
 
   OrganizationMemberEntity,
-
 ];
 
-
-
 @Module({
-
   imports: [
-
     ConfigModule.forRoot({ isGlobal: true }),
 
     RedisModule,
 
     JwtModule.register({
-
       global: true,
 
       secret:
-
-        process.env.JWT_SECRET ||
-
-        'kigali-pack-dev-secret-change-in-production',
+        process.env.JWT_SECRET || 'kigali-pack-dev-secret-change-in-production',
 
       signOptions: { expiresIn: '15m' },
-
     }),
 
     BullModule.forRoot({
-
       connection: {
-
         host: process.env.REDIS_HOST || 'localhost',
 
         port: parseInt(process.env.REDIS_PORT || '6379', 10),
@@ -209,21 +187,16 @@ const ENTITIES = [
         password: process.env.REDIS_PASSWORD || undefined,
 
         db: parseInt(process.env.REDIS_DB || '0', 10),
-
       },
-
     }),
 
     BullModule.registerQueue(
-
       { name: WEBHOOK_DELIVERY_QUEUE },
 
       { name: WEBHOOK_DLQ },
-
     ),
 
     TypeOrmModule.forRoot({
-
       type: 'postgres',
 
       host: process.env.DB_HOST || 'localhost',
@@ -241,17 +214,16 @@ const ENTITIES = [
       synchronize: false,
 
       logging: process.env.NODE_ENV === 'development',
-
     }),
 
     TypeOrmModule.forFeature(ENTITIES),
 
-    HttpModule,
+    AdminModule,
 
+    HttpModule,
   ],
 
   controllers: [
-
     HealthController,
 
     AuthController,
@@ -279,11 +251,9 @@ const ENTITIES = [
     PhoneController,
 
     TestDataController,
-
   ],
 
   providers: [
-
     ApiKeyService,
 
     AuthService,
@@ -334,6 +304,8 @@ const ENTITIES = [
 
     RequestLoggingInterceptor,
 
+    TelemetryInterceptor,
+
     DeprecationHeaderInterceptor,
 
     AdminGuard,
@@ -341,11 +313,8 @@ const ENTITIES = [
     InternalGuard,
 
     AuthRateLimitGuard,
-
   ],
-
 })
-
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer.apply(RequestIdMiddleware).forRoutes('*');

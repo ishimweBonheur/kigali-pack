@@ -32,10 +32,7 @@ describe('GlobalHttpExceptionFilter', () => {
   it('returns unified error envelope for HttpException', () => {
     const { host, json, setHeader } = createHost();
 
-    filter.catch(
-      new HttpException('Not allowed', HttpStatus.FORBIDDEN),
-      host,
-    );
+    filter.catch(new HttpException('Not allowed', HttpStatus.FORBIDDEN), host);
 
     expect(setHeader).toHaveBeenCalledWith('x-request-id', 'req-123');
     expect(json).toHaveBeenCalledWith({

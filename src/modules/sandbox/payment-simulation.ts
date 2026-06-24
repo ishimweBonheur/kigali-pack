@@ -5,7 +5,9 @@ export type PaymentSimulationOutcome =
   | { status: 'REJECTED'; failureReason: 'REJECTED' }
   | { status: 'FAILED'; failureReason: 'NETWORK_ERROR' };
 
-export function resolvePaymentSimulation(amount: number): PaymentSimulationOutcome {
+export function resolvePaymentSimulation(
+  amount: number,
+): PaymentSimulationOutcome {
   if (amount === 111111) {
     return { status: 'FAILED', failureReason: 'INSUFFICIENT_FUNDS' };
   }

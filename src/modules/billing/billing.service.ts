@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import {
@@ -15,10 +12,7 @@ import { ApiKeyTier } from '../auth/enums/api-key.enum';
 import { ApiUsageEntity } from '../analytics/entities/api-usage.entity';
 import { JwtPayload } from '../organizations/organization.service';
 import { OrganizationEntity } from '../organizations/entities/organization.entity';
-import {
-  InvoiceListItem,
-  UsageCounterResponse,
-} from './dto/invoice.dto';
+import { InvoiceListItem, UsageCounterResponse } from './dto/invoice.dto';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import {
   buildPaginationMeta,
@@ -133,7 +127,10 @@ export class BillingService {
       const invoice = invoiceRepo.create({
         subscription: savedSub,
         amountRwf: plan.priceMonthlyRwf,
-        status: Number(plan.priceMonthlyRwf) === 0 ? InvoiceStatus.PAID : InvoiceStatus.OPEN,
+        status:
+          Number(plan.priceMonthlyRwf) === 0
+            ? InvoiceStatus.PAID
+            : InvoiceStatus.OPEN,
         dueDate,
         paidAt: Number(plan.priceMonthlyRwf) === 0 ? new Date() : null,
       });
@@ -249,7 +246,9 @@ export class BillingService {
       order: { createdAt: 'DESC' },
     });
 
-    const plan = subscription?.plan ?? (await this.planRepo.findOne({ where: { code: 'FREE' } }));
+    const plan =
+      subscription?.plan ??
+      (await this.planRepo.findOne({ where: { code: 'FREE' } }));
     const planLimit = plan?.rateLimitPerHour
       ? plan.rateLimitPerHour * 24 * 30
       : 100 * 24 * 30;
@@ -278,7 +277,9 @@ export class BillingService {
       planLimit,
       planCode: plan?.code ?? 'FREE',
       usagePercent:
-        planLimit > 0 ? Math.round((currentUsage / planLimit) * 10000) / 100 : 0,
+        planLimit > 0
+          ? Math.round((currentUsage / planLimit) * 10000) / 100
+          : 0,
       resettingAt: monthEnd.toISOString(),
     };
   }

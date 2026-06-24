@@ -47,7 +47,10 @@ export class WebhookController {
   @Get()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'List registered webhooks' })
-  async list(@Req() req: AuthenticatedRequest, @Query() query: PaginationQueryDto) {
+  async list(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: PaginationQueryDto,
+  ) {
     return this.webhookService.list(req.developer, query.page, query.limit);
   }
 
@@ -55,7 +58,10 @@ export class WebhookController {
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({ summary: 'Manually retry a past webhook delivery attempt' })
   @ApiParam({ name: 'id', format: 'uuid', description: 'Original delivery ID' })
-  @ApiResponse({ status: 202, description: 'Retry queued for background delivery' })
+  @ApiResponse({
+    status: 202,
+    description: 'Retry queued for background delivery',
+  })
   async retryDelivery(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,

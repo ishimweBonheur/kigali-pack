@@ -23,7 +23,10 @@ export class AnalyticsService {
     private readonly logRepo: Repository<ApiLogEntity>,
   ) {}
 
-  private defaultDateRange(query: AnalyticsQueryDto): { from: string; to: string } {
+  private defaultDateRange(query: AnalyticsQueryDto): {
+    from: string;
+    to: string;
+  } {
     const to = query.to ?? new Date().toISOString().slice(0, 10);
     const fromDate = new Date();
     fromDate.setDate(fromDate.getDate() - 30);
@@ -154,7 +157,11 @@ export class AnalyticsService {
       .andWhere('usage.usage_date BETWEEN :from AND :to', { from, to })
       .groupBy('usage.usage_date')
       .orderBy('usage.usage_date', 'DESC')
-      .getRawMany<{ date: string; errorCount: string; totalRequests: string }>();
+      .getRawMany<{
+        date: string;
+        errorCount: string;
+        totalRequests: string;
+      }>();
 
     const recentErrors = await this.logRepo
       .createQueryBuilder('log')
@@ -283,7 +290,9 @@ export class AnalyticsService {
       .orderBy('log.timestamp', 'DESC');
 
     if (query.method) {
-      qb.andWhere('log.method = :method', { method: query.method.toUpperCase() });
+      qb.andWhere('log.method = :method', {
+        method: query.method.toUpperCase(),
+      });
     }
 
     if (query.statusCode) {
@@ -319,18 +328,42 @@ export class AnalyticsService {
   }
 
   private toLogListItem(log: ApiLogEntity): ApiLogListItem {
+    const timestamp = this.safeIsoTimestamp(log.timestamp);
+
     return {
       id: log.id,
+      developerId: log.developerId ?? log.apiKey?.id ?? '',
       method: log.method,
       routePath: log.endpoint,
       httpStatusCode: log.statusCode,
       executionTimeMs: log.responseTimeMs,
+      processingMode: log.processingMode ?? 'stateful',
       clientIp: null,
       maskedPayloadSnapshot: {
-        request: '[REDACTED — request body not persisted]',
-        response: '[REDACTED — response body not persisted]',
+        request:
+          log.maskedRequestSnapshot ??
+          '[REDACTED — request body not persisted]',
+        response:
+          log.maskedResponseSnapshot ??
+          '[REDACTED — response body not persisted]',
       },
-      createdAt: log.timestamp,
+      createdAt: timestamp,
+      // Legacy aliases consumed by frontend analytics table
+      endpoint: log.endpoint,
+      statusCode: log.statusCode,
+      latencyMs: log.responseTimeMs,
+      timestamp,
     };
+  }
+
+  private safeIsoTimestamp(value: Date | string | undefined | null): string {
+    if (!value) {
+      return new Date().toISOString();
+    }
+    const parsed = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return new Date().toISOString();
+    }
+    return parsed.toISOString();
   }
 }

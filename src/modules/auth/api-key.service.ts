@@ -119,10 +119,7 @@ export class ApiKeyService {
     };
   }
 
-  async revoke(
-    owner: ApiKeyEntity,
-    keyId: string,
-  ): Promise<ApiKeyResponseDto> {
+  async revoke(owner: ApiKeyEntity, keyId: string): Promise<ApiKeyResponseDto> {
     const key = await this.findOwnedKey(owner, keyId);
 
     if (!key.isActive || key.revokedAt) {

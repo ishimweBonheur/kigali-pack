@@ -16,16 +16,19 @@ import {
   buildPaginationMeta,
   paginateOffset,
 } from '../../common/utils/pagination.util';
+import {
+  buildSignatureHeader,
+  computeWebhookHmac,
+  parseSignatureHeader,
+  verifyWebhookSignature,
+  WEBHOOK_SIGNATURE_TOLERANCE_SECONDS,
+} from '../../common/utils/webhook-signing.util';
 
 export const WEBHOOK_DELIVERY_QUEUE = 'webhook-deliveries';
 export const WEBHOOK_DLQ = 'webhook-dlq';
 
 export const WEBHOOK_RETRY_DELAYS_MS = [
-  60_000,
-  300_000,
-  900_000,
-  3_600_000,
-  14_400_000,
+  60_000, 300_000, 900_000, 3_600_000, 14_400_000,
 ];
 
 export interface WebhookDeliveryJob {
@@ -50,27 +53,33 @@ export class WebhookService {
   }
 
   signPayload(secret: string, payload: string, timestamp: number): string {
-    const signedContent = `${timestamp}.${payload}`;
-    return crypto
-      .createHmac('sha256', secret)
-      .update(signedContent)
-      .digest('hex');
+    return computeWebhookHmac(secret, payload, timestamp);
+  }
+
+  buildSignatureHeader(
+    secret: string,
+    payload: string,
+    timestamp: number,
+  ): string {
+    return buildSignatureHeader(secret, payload, timestamp);
+  }
+
+  parseSignatureHeader(headerValue: string) {
+    return parseSignatureHeader(headerValue);
   }
 
   verifySignature(
     secret: string,
     payload: string,
-    timestamp: number,
-    signature: string,
+    headerValue: string,
+    toleranceSeconds = WEBHOOK_SIGNATURE_TOLERANCE_SECONDS,
   ): boolean {
-    const expected = this.signPayload(secret, payload, timestamp);
-    if (expected.length !== signature.length) {
-      return false;
-    }
-    return crypto.timingSafeEqual(
-      Buffer.from(expected),
-      Buffer.from(signature),
-    );
+    return verifyWebhookSignature(
+      secret,
+      payload,
+      headerValue,
+      toleranceSeconds,
+    ).valid;
   }
 
   async create(owner: ApiKeyEntity, dto: CreateWebhookDto) {
@@ -174,8 +183,7 @@ export class WebhookService {
 
     const matching = webhooks.filter(
       (webhook) =>
-        webhook.events.includes(eventType) ||
-        webhook.events.includes('*'),
+        webhook.events.includes(eventType) || webhook.events.includes('*'),
     );
 
     await Promise.all(
@@ -204,14 +212,13 @@ export class WebhookService {
     return {
       webhookId: webhook.id,
       pagination: buildPaginationMeta(page, limit, total),
-      data: deliveries.map((delivery) => this.toDeliveryResponse(delivery, webhook.url)),
+      data: deliveries.map((delivery) =>
+        this.toDeliveryResponse(delivery, webhook.url),
+      ),
     };
   }
 
-  async retryDelivery(
-    owner: ApiKeyEntity,
-    deliveryId: string,
-  ) {
+  async retryDelivery(owner: ApiKeyEntity, deliveryId: string) {
     const original = await this.deliveryRepo.findOne({
       where: { id: deliveryId },
       relations: { webhook: { apiKey: true } },

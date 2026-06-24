@@ -25,7 +25,9 @@ export class TransformInterceptor implements NestInterceptor {
       return next.handle();
     }
 
-    const request = context.switchToHttp().getRequest<{ method?: string; url?: string }>();
+    const request = context
+      .switchToHttp()
+      .getRequest<{ method?: string; url?: string }>();
 
     return next.handle().pipe(
       map((body) => {

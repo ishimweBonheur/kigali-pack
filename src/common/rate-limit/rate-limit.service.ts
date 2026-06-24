@@ -34,7 +34,9 @@ export class RateLimitService {
     tier: ApiKeyTier;
     maxRequests: number | null;
   } {
-    const normalizedTier = (tier ?? ApiKeyTier.FREE).toUpperCase() as ApiKeyTier;
+    const normalizedTier = (
+      tier ?? ApiKeyTier.FREE
+    ).toUpperCase() as ApiKeyTier;
     const policy =
       TIER_RATE_LIMIT_POLICIES[normalizedTier] ??
       TIER_RATE_LIMIT_POLICIES[ApiKeyTier.FREE];

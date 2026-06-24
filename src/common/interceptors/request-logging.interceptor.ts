@@ -51,7 +51,10 @@ export class RequestLoggingInterceptor implements NestInterceptor {
     path: string,
     statusCode: number,
     startedAt: number,
-    ids: { requestId: string | string[] | undefined; correlationId: string | string[] | undefined },
+    ids: {
+      requestId: string | string[] | undefined;
+      correlationId: string | string[] | undefined;
+    },
   ): void {
     const durationMs = Date.now() - startedAt;
     this.logger.log(

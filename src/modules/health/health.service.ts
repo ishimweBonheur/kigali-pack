@@ -7,7 +7,10 @@ import * as fs from 'fs';
 
 export interface HealthCheckResult {
   status: 'ok' | 'degraded' | 'error';
-  checks: Record<string, { status: string; message?: string; latencyMs?: number }>;
+  checks: Record<
+    string,
+    { status: string; message?: string; latencyMs?: number }
+  >;
   timestamp: string;
 }
 
@@ -19,7 +22,11 @@ export class HealthService {
     private readonly redisService: RedisService,
   ) {}
 
-  async checkPostgres(): Promise<{ status: string; latencyMs?: number; message?: string }> {
+  async checkPostgres(): Promise<{
+    status: string;
+    latencyMs?: number;
+    message?: string;
+  }> {
     const start = Date.now();
     try {
       await this.dataSource.query('SELECT 1');
@@ -36,14 +43,20 @@ export class HealthService {
     if (this.redisService.isConnected()) {
       return { status: 'ok' };
     }
-    return { status: 'degraded', message: 'Redis not connected (rate limiting fail-open)' };
+    return {
+      status: 'degraded',
+      message: 'Redis not connected (rate limiting fail-open)',
+    };
   }
 
   checkDiskSpace(): { status: string; message?: string } {
     try {
       const root = process.platform === 'win32' ? 'C:\\' : '/';
       fs.accessSync(root, fs.constants.R_OK);
-      return { status: 'ok', message: `Platform: ${os.platform()}, free mem: ${Math.round(os.freemem() / 1024 / 1024)}MB` };
+      return {
+        status: 'ok',
+        message: `Platform: ${os.platform()}, free mem: ${Math.round(os.freemem() / 1024 / 1024)}MB`,
+      };
     } catch (error) {
       return {
         status: 'degraded',
@@ -69,7 +82,9 @@ export class HealthService {
 
     const checks = { postgres, redis, disk, queue };
     const hasError = Object.values(checks).some((c) => c.status === 'error');
-    const hasDegraded = Object.values(checks).some((c) => c.status === 'degraded');
+    const hasDegraded = Object.values(checks).some(
+      (c) => c.status === 'degraded',
+    );
 
     return {
       status: hasError ? 'error' : hasDegraded ? 'degraded' : 'ok',
@@ -78,7 +93,11 @@ export class HealthService {
     };
   }
 
-  async getReady(): Promise<{ ready: boolean; postgres: string; redis: string }> {
+  async getReady(): Promise<{
+    ready: boolean;
+    postgres: string;
+    redis: string;
+  }> {
     const postgres = await this.checkPostgres();
     const redis = this.checkRedis();
     const ready = postgres.status === 'ok';

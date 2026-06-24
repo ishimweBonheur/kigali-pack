@@ -95,7 +95,9 @@ export class ForgotPasswordDto {
 }
 
 export class ResetPasswordDto {
-  @ApiProperty({ description: 'Password reset token from forgot-password flow' })
+  @ApiProperty({
+    description: 'Password reset token from forgot-password flow',
+  })
   @IsString()
   @MinLength(32)
   token!: string;

@@ -48,7 +48,12 @@ export class SubscriptionEntity {
   @Column({ name: 'cancelled_at', type: 'timestamptz', nullable: true })
   cancelledAt!: Date | null;
 
-  @Column({ name: 'momo_reference', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'momo_reference',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   momoReference!: string | null;
 
   @OneToMany(() => InvoiceEntity, (invoice) => invoice.subscription)

@@ -70,7 +70,10 @@ export class ApiKeyController {
     @Req() req: AuthenticatedRequest,
     @Query() query: PaginationQueryDto,
   ) {
-    return this.apiKeyService.listByDeveloper(req.developer.developerName, query);
+    return this.apiKeyService.listByDeveloper(
+      req.developer.developerName,
+      query,
+    );
   }
 
   @Patch(':id/revoke')

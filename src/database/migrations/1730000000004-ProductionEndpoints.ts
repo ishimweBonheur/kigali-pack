@@ -30,7 +30,9 @@ export class ProductionEndpoints1730000000004 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_auth_action_tokens_hash_type"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_auth_action_tokens_hash_type"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "auth_action_tokens"`);
     await queryRunner.query(
       `ALTER TABLE "organization_members" DROP COLUMN IF EXISTS "email_verified"`,
