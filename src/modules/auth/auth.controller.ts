@@ -1,12 +1,14 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
   HttpCode,
   HttpStatus,
   UseGuards,
+  Req,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import {
   AuthLoginDto,
@@ -23,6 +25,12 @@ import {
   ApiSuccessResponseDto,
 } from '../../common/dto/api-response.dto';
 import { AuthRateLimitGuard } from '../../common/guards/auth-rate-limit.guard';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { JwtPayload } from '../organizations/organization.service';
+
+interface JwtRequest {
+  member: JwtPayload;
+}
 
 @ApiTags('Authentication')
 @Controller('v1/auth')
@@ -117,6 +125,37 @@ export class AuthController {
     return {
       data: result,
       message: 'Email verified successfully',
+    };
+  }
+
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('jwt')
+  @ApiOperation({ summary: 'Resend email verification link' })
+  @ApiResponse({ status: 200, type: ApiSuccessResponseDto })
+  @ApiResponse({ status: 400, type: ApiErrorResponseDto })
+  async resendVerification(@Req() req: JwtRequest) {
+    const result = await this.authService.resendVerificationEmail(
+      req.member.sub,
+    );
+    return {
+      data: result,
+      message: result.message,
+    };
+  }
+
+  @Get('verification-status')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('jwt')
+  @ApiOperation({ summary: 'Get email verification status for current user' })
+  @ApiResponse({ status: 200, type: ApiSuccessResponseDto })
+  async verificationStatus(@Req() req: JwtRequest) {
+    const result = await this.authService.getVerificationStatus(req.member.sub);
+    return {
+      data: result,
+      message: 'Verification status retrieved',
     };
   }
 }

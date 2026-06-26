@@ -89,6 +89,7 @@ export class MeService {
     return {
       id: member.id,
       email: member.email,
+      emailVerified: member.emailVerified,
       role: this.authService.normalizeRole(member.role),
       organization: {
         id: member.organization.id,

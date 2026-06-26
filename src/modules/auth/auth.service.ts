@@ -3,6 +3,9 @@ import {
   UnauthorizedException,
   ConflictException,
   NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, IsNull } from 'typeorm';
@@ -29,14 +32,17 @@ import {
 } from './entities/auth-action-token.entity';
 import { JwtPayload } from '../organizations/organization.service';
 import { ApiKeyService } from './api-key.service';
+import { MailService } from '../../common/mail/mail.service';
 
 const ACCESS_TOKEN_TTL_SECONDS = 900;
 const REFRESH_TOKEN_TTL_DAYS = 7;
 const PASSWORD_RESET_TTL_HOURS = 1;
-const EMAIL_VERIFICATION_TTL_HOURS = 24;
+const EMAIL_VERIFICATION_TTL_MINUTES = 20;
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(OrganizationEntity)
     private readonly orgRepo: Repository<OrganizationEntity>,
@@ -49,6 +55,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly dataSource: DataSource,
     private readonly apiKeyService: ApiKeyService,
+    private readonly mailService: MailService,
   ) {}
 
   hashPassword(password: string): string {
@@ -109,11 +116,17 @@ export class AuthService {
 
       const tokens = await this.issueTokenPair(savedMember, savedOrg, manager);
 
-      await this.issueActionToken(
+      const { token, expiresAt } = await this.issueActionToken(
         savedMember,
         AuthActionTokenType.EMAIL_VERIFICATION,
         manager,
       );
+
+      const mailResult = await this.mailService.sendVerificationEmail({
+        to: savedMember.email,
+        token,
+        expiresAt,
+      });
 
       return {
         tokens,
@@ -121,6 +134,8 @@ export class AuthService {
         organizationId: savedOrg.id,
         role: this.normalizeRole(savedMember.role),
         email: savedMember.email,
+        emailVerified: savedMember.emailVerified,
+        verificationEmailSent: mailResult.sent,
         organization: {
           id: savedOrg.id,
           name: savedOrg.name,
@@ -245,6 +260,18 @@ export class AuthService {
     );
 
     const member = stored.member;
+
+    if (member.emailVerified) {
+      stored.usedAt = new Date();
+      await this.actionTokenRepo.save(stored);
+      return {
+        emailVerified: true,
+        email: member.email,
+        memberId: member.id,
+        alreadyVerified: true,
+      };
+    }
+
     member.emailVerified = true;
     await this.memberRepo.save(member);
 
@@ -255,7 +282,78 @@ export class AuthService {
       emailVerified: true,
       email: member.email,
       memberId: member.id,
+      alreadyVerified: false,
     };
+  }
+
+  async resendVerificationEmail(memberId: string) {
+    const member = await this.memberRepo.findOne({ where: { id: memberId } });
+
+    if (!member) {
+      throw new NotFoundException('Profile not found');
+    }
+
+    if (member.emailVerified) {
+      throw new BadRequestException('Email is already verified');
+    }
+
+    await this.invalidateActiveActionTokens(
+      member.id,
+      AuthActionTokenType.EMAIL_VERIFICATION,
+    );
+
+    const { token, expiresAt } = await this.issueActionToken(
+      member,
+      AuthActionTokenType.EMAIL_VERIFICATION,
+    );
+
+    const mailResult = await this.mailService.sendVerificationEmail({
+      to: member.email,
+      token,
+      expiresAt,
+    });
+
+    if (!mailResult.sent) {
+      this.logger.warn(
+        `Resend verification failed for ${member.email}: ${mailResult.reason ?? 'unknown'}`,
+      );
+    }
+
+    return {
+      email: member.email,
+      verificationEmailSent: mailResult.sent,
+      expiresAt: expiresAt.toISOString(),
+      message: mailResult.sent
+        ? 'Verification email sent'
+        : 'Could not send verification email — SMTP may not be configured',
+    };
+  }
+
+  async getVerificationStatus(memberId: string) {
+    const member = await this.memberRepo.findOne({ where: { id: memberId } });
+
+    if (!member) {
+      throw new NotFoundException('Profile not found');
+    }
+
+    return {
+      email: member.email,
+      emailVerified: member.emailVerified,
+    };
+  }
+
+  async assertEmailVerified(memberId: string): Promise<void> {
+    const member = await this.memberRepo.findOne({ where: { id: memberId } });
+
+    if (!member) {
+      throw new NotFoundException('Profile not found');
+    }
+
+    if (!member.emailVerified) {
+      throw new ForbiddenException(
+        'Verify your email before generating API keys',
+      );
+    }
   }
 
   private async issueActionToken(
@@ -265,12 +363,13 @@ export class AuthService {
   ): Promise<{ token: string; expiresAt: Date }> {
     const token = crypto.randomBytes(48).toString('hex');
     const expiresAt = new Date();
-    expiresAt.setHours(
-      expiresAt.getHours() +
-        (type === AuthActionTokenType.PASSWORD_RESET
-          ? PASSWORD_RESET_TTL_HOURS
-          : EMAIL_VERIFICATION_TTL_HOURS),
-    );
+    if (type === AuthActionTokenType.PASSWORD_RESET) {
+      expiresAt.setHours(expiresAt.getHours() + PASSWORD_RESET_TTL_HOURS);
+    } else {
+      expiresAt.setMinutes(
+        expiresAt.getMinutes() + EMAIL_VERIFICATION_TTL_MINUTES,
+      );
+    }
 
     const repo = manager
       ? manager.getRepository(AuthActionTokenEntity)
@@ -351,5 +450,19 @@ export class AuthService {
 
   private hashToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
+  private async invalidateActiveActionTokens(
+    memberId: string,
+    type: AuthActionTokenType,
+  ): Promise<void> {
+    await this.actionTokenRepo.update(
+      {
+        member: { id: memberId },
+        type,
+        usedAt: IsNull(),
+      },
+      { usedAt: new Date() },
+    );
   }
 }

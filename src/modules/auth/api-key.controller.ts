@@ -23,6 +23,7 @@ import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { TierThrottlerGuard } from '../../common/guards/tier-throttler.guard';
 import type { AuthenticatedRequest } from '../../common/types/authenticated-request.interface';
 import { ApiKeyService } from './api-key.service';
+import { AuthService } from './auth.service';
 import { CreateApiKeyDto } from './dto/create-api-key.dto';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import {
@@ -30,6 +31,11 @@ import {
   CreateApiKeyResponseDto,
   RotateApiKeyResponseDto,
 } from './dto/api-key-response.dto';
+import { JwtPayload } from '../organizations/organization.service';
+
+interface ApiKeyRequest extends AuthenticatedRequest {
+  member?: JwtPayload;
+}
 
 @ApiTags('Developer API Keys')
 @ApiBearerAuth('bearer')
@@ -37,7 +43,10 @@ import {
 @Controller('v1/developer/api-keys')
 @UseGuards(ApiKeyGuard, TierThrottlerGuard)
 export class ApiKeyController {
-  constructor(private readonly apiKeyService: ApiKeyService) {}
+  constructor(
+    private readonly apiKeyService: ApiKeyService,
+    private readonly authService: AuthService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -48,9 +57,12 @@ export class ApiKeyController {
     type: CreateApiKeyResponseDto,
   })
   async create(
-    @Req() req: AuthenticatedRequest,
+    @Req() req: ApiKeyRequest,
     @Body() dto: CreateApiKeyDto,
   ): Promise<CreateApiKeyResponseDto> {
+    if (req.member) {
+      await this.authService.assertEmailVerified(req.member.sub);
+    }
     return this.apiKeyService.create(req.developer, dto);
   }
 

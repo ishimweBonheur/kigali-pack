@@ -10,6 +10,8 @@ import { JwtModule } from '@nestjs/jwt';
 
 import { BullModule } from '@nestjs/bullmq';
 
+import { MailModule } from './common/mail/mail.module';
+
 import { ApiKeyEntity } from './modules/auth/entities/api-key.entity';
 
 import { RefreshTokenEntity } from './modules/auth/entities/refresh-token.entity';
@@ -166,6 +168,8 @@ const ENTITIES = [
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+
+    MailModule,
 
     RedisModule,
 
