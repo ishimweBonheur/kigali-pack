@@ -21,7 +21,7 @@ export class CacheService {
     try {
       const raw = await client.get(this.buildKey(key));
       return raw ? (JSON.parse(raw) as T) : null;
-    } catch (error) {
+    } catch {
       this.logger.warn(`Cache get failed for ${key}`);
       return null;
     }
@@ -40,7 +40,7 @@ export class CacheService {
         'EX',
         ttlSeconds,
       );
-    } catch (error) {
+    } catch {
       this.logger.warn(`Cache set failed for ${key}`);
     }
   }
@@ -66,9 +66,9 @@ export class CacheService {
 
     const fullPattern = this.buildKey(pattern);
     const stream = client.scanStream({ match: fullPattern, count: 100 });
-    for await (const keys of stream) {
-      if (keys.length) {
-        await client.del(...keys);
+    for await (const keyBatch of stream as AsyncIterable<string[]>) {
+      if (keyBatch.length > 0) {
+        await client.del(...keyBatch);
       }
     }
   }

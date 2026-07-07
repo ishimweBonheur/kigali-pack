@@ -36,10 +36,7 @@ import {
   resolvePaymentSimulation,
   SANDBOX_TEST_ACCOUNTS,
 } from './payment-simulation';
-import {
-  ApiErrorResponseDto,
-  ApiSuccessResponseDto,
-} from '../../common/dto/api-response.dto';
+import { ApiSuccessResponseDto } from '../../common/dto/api-response.dto';
 
 @ApiTags('Sandbox Payments')
 @ApiBearerAuth()
@@ -104,7 +101,7 @@ export class SandboxController {
     }
 
     if (simulation.status === 'SUCCESS') {
-      setTimeout(async () => {
+      setTimeout(() => {
         const payloadDelivery = {
           transactionId: savedTx.id,
           clientReference: savedTx.clientReference,
@@ -115,31 +112,33 @@ export class SandboxController {
           timestamp: new Date().toISOString(),
         };
 
-        try {
-          await firstValueFrom(
-            this.httpService.post(savedTx.webhookUrl, payloadDelivery, {
-              timeout: 4000,
-            }),
-          );
+        void (async () => {
+          try {
+            await firstValueFrom(
+              this.httpService.post(savedTx.webhookUrl, payloadDelivery, {
+                timeout: 4000,
+              }),
+            );
 
-          await this.txRepo.update(savedTx.id, {
-            status: 'SUCCESS',
-            completedAt: new Date(),
-          });
-          void this.webhookService
-            .dispatchEventForDeveloper(
-              activeDeveloper.id,
-              'payment.success',
-              payloadDelivery,
-            )
-            .catch(() => undefined);
-        } catch {
-          await this.txRepo.update(savedTx.id, {
-            status: 'FAILED',
-            failureReason: 'ERR_WEBHOOK_DELIVERY_FAILED',
-            completedAt: new Date(),
-          });
-        }
+            await this.txRepo.update(savedTx.id, {
+              status: 'SUCCESS',
+              completedAt: new Date(),
+            });
+            void this.webhookService
+              .dispatchEventForDeveloper(
+                activeDeveloper.id,
+                'payment.success',
+                payloadDelivery,
+              )
+              .catch(() => undefined);
+          } catch {
+            await this.txRepo.update(savedTx.id, {
+              status: 'FAILED',
+              failureReason: 'ERR_WEBHOOK_DELIVERY_FAILED',
+              completedAt: new Date(),
+            });
+          }
+        })();
       }, 3000);
     }
 
@@ -191,7 +190,7 @@ export class SandboxController {
     summary:
       'List sandbox test accounts and amount triggers for payment simulation',
   })
-  async listTestAccounts() {
+  listTestAccounts() {
     return {
       accounts: SANDBOX_TEST_ACCOUNTS,
       rules: {

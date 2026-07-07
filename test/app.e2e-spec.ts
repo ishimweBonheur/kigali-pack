@@ -36,7 +36,7 @@ describe('Kigali-Pack API (e2e)', () => {
     return request(app.getHttpServer())
       .get('/health')
       .expect(200)
-      .expect((res) => {
+      .expect((res: { body: Record<string, unknown> }) => {
         expect(res.body).toHaveProperty('status');
         expect(res.body.success).toBeUndefined();
       });
@@ -46,17 +46,22 @@ describe('Kigali-Pack API (e2e)', () => {
     return request(app.getHttpServer())
       .get('/live')
       .expect(200)
-      .expect((res) => {
-        expect(res.headers['x-request-id']).toBeDefined();
-        expect(res.body).toHaveProperty('alive', true);
-      });
+      .expect(
+        (res: {
+          headers: Record<string, string | undefined>;
+          body: Record<string, unknown>;
+        }) => {
+          expect(res.headers['x-request-id']).toBeDefined();
+          expect(res.body).toHaveProperty('alive', true);
+        },
+      );
   });
 
   it('GET /version exposes API metadata', () => {
     return request(app.getHttpServer())
       .get('/version')
       .expect(200)
-      .expect((res) => {
+      .expect((res: { body: Record<string, unknown> }) => {
         expect(res.body).toHaveProperty('version');
       });
   });
@@ -79,7 +84,7 @@ describe('Kigali-Pack API (e2e)', () => {
     return request(app.getHttpServer())
       .get('/v1/billing/plans')
       .expect(200)
-      .expect((res) => {
+      .expect((res: { body: Record<string, unknown> }) => {
         expect(res.body.success).toBe(true);
         expect(res.body).toHaveProperty('data');
         expect(res.body).toHaveProperty('message');
@@ -91,9 +96,11 @@ describe('Kigali-Pack API (e2e)', () => {
       .post('/v1/auth/login')
       .send({ email: 'not-an-email', password: 'x' })
       .expect(400)
-      .expect((res) => {
-        expect(res.body.success).toBe(false);
-        expect(res.body.error.code).toBe('VALIDATION_ERROR');
-      });
+      .expect(
+        (res: { body: { success?: boolean; error?: { code?: string } } }) => {
+          expect(res.body.success).toBe(false);
+          expect(res.body.error?.code).toBe('VALIDATION_ERROR');
+        },
+      );
   });
 });

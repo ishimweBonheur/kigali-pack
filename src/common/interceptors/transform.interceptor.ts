@@ -32,7 +32,7 @@ export class TransformInterceptor implements NestInterceptor {
     return next.handle().pipe(
       map((body) => {
         if (body && typeof body === 'object' && 'success' in body) {
-          return body;
+          return body as unknown;
         }
 
         const message = this.resolveMessage(request.method, body);
@@ -112,13 +112,11 @@ export class TransformInterceptor implements NestInterceptor {
       meta.summary = record.summary;
     }
 
-    const {
-      pagination: _p,
-      period: _pd,
-      summary: _s,
-      message: _m,
-      ...rest
-    } = record;
+    const { pagination, period, summary, message, ...rest } = record;
+    void pagination;
+    void period;
+    void summary;
+    void message;
 
     if (Object.keys(rest).length === 0 && Object.keys(meta).length > 0) {
       return { data: meta.summary ?? {}, meta };

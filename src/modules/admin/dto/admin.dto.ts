@@ -1,11 +1,4 @@
-import {
-  IsEnum,
-  IsInt,
-  IsOptional,
-  IsString,
-  IsUUID,
-  Min,
-} from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
 import { SubscriptionStatus } from '../../billing/entities/subscription.entity';
@@ -29,7 +22,10 @@ export class TierOverrideDto {
   @IsString()
   planCode?: string;
 
-  @ApiPropertyOptional({ example: 50000, description: 'Custom hourly API limit' })
+  @ApiPropertyOptional({
+    example: 50000,
+    description: 'Custom hourly API limit',
+  })
   @IsOptional()
   @IsInt()
   @Min(1)

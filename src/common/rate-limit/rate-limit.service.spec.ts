@@ -1,8 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { HttpException, HttpStatus } from '@nestjs/common';
-import { ExecutionContext } from '@nestjs/common/interfaces';
 import { ApiKeyTier } from '../../modules/auth/enums/api-key.enum';
-import { ApiKeyEntity } from '../../modules/auth/entities/api-key.entity';
 import { RateLimitService } from './rate-limit.service';
 import { RedisService } from '../redis/redis.service';
 import { RATE_LIMIT_WINDOW_MS } from './rate-limit.constants';

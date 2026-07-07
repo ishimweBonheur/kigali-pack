@@ -20,7 +20,7 @@ export class TestDataController {
   @Get('citizens/random')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Generate a random Rwanda citizen profile' })
-  async randomCitizen() {
+  randomCitizen() {
     return this.testDataService.randomCitizen();
   }
 

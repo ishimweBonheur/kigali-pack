@@ -44,7 +44,7 @@ export class KycController {
     status: 200,
     description: 'Contextual sandbox identity profile returned',
   })
-  async runMockKycProfileLookup(
+  runMockKycProfileLookup(
     @Param('nationalId') nationalId: string,
     @Req() req: AuthenticatedRequest,
   ) {
@@ -86,7 +86,7 @@ export class KycController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Compute RRA PAYE and VAT breakdown' })
   @ApiResponse({ status: 200, type: ApiSuccessResponseDto })
-  async computeRraTaxBrackets(@Body() dto: CalculateTaxDto) {
+  computeRraTaxBrackets(@Body() dto: CalculateTaxDto) {
     const paye = this.rraPayrollService.calculatePaye(dto.grossSalary);
     const structuralVatComponent = dto.grossSalary * 0.18;
 
@@ -111,7 +111,7 @@ export class KycController {
       'Employee pension 3%, employer pension 5%, employee maternity 0.3%, employer maternity 0.3%.',
   })
   @ApiResponse({ status: 200, type: ApiSuccessResponseDto })
-  async computeRssbContributions(@Body() dto: CalculateTaxDto) {
+  computeRssbContributions(@Body() dto: CalculateTaxDto) {
     const rssb = this.rraPayrollService.calculateRssb(dto.grossSalary);
     return {
       data: rssb,
@@ -127,7 +127,7 @@ export class KycController {
   })
   @ApiResponse({ status: 200, type: ApiSuccessResponseDto })
   @ApiResponse({ status: 400, type: ApiErrorResponseDto })
-  async computePayrollSummary(@Body() dto: CalculateTaxDto) {
+  computePayrollSummary(@Body() dto: CalculateTaxDto) {
     const summary = this.rraPayrollService.calculatePayrollSummary(
       dto.grossSalary,
     );
@@ -144,7 +144,7 @@ export class KycController {
     summary: 'Retrieve recommended project boilerplate template',
     description: 'Public endpoint — no authentication required.',
   })
-  async retrieveBoilerplateTemplateStructure() {
+  retrieveBoilerplateTemplateStructure() {
     return {
       templateName: 'NestJS-NextJS-Momo-Stack',
       architectureStyle: 'Modular-Monolith-Integration',

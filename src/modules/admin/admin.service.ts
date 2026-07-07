@@ -109,8 +109,7 @@ export class AdminService {
       totalActiveApiKeys,
       totalMrrRwf: Number(mrrResult?.mrr ?? 0),
       globalAverageLatencyMs: Math.round(Number(latencyResult?.avgMs ?? 0)),
-      globalErrorRate:
-        totalRequests > 0 ? totalErrors / totalRequests : 0,
+      globalErrorRate: totalRequests > 0 ? totalErrors / totalRequests : 0,
     };
   }
 
@@ -243,7 +242,10 @@ export class AdminService {
       });
     }
 
-    const [members, total] = await qb.skip(offset).take(limit).getManyAndCount();
+    const [members, total] = await qb
+      .skip(offset)
+      .take(limit)
+      .getManyAndCount();
 
     const data = await Promise.all(
       members.map(async (member) => {

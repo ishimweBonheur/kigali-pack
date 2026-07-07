@@ -58,11 +58,6 @@ export interface LocationTreeNode {
   children: LocationTreeNode[];
 }
 
-type RwandaDatasetRoot =
-  | RawNestedNode[]
-  | FlatRwandaRecord[]
-  | { provinces: RawNestedNode[] };
-
 function trimValue(value: string | number | null | undefined): string {
   if (value === null || value === undefined) {
     return '';
@@ -98,7 +93,7 @@ function resolveRootProvinces(
   dataset: unknown,
 ): RawNestedNode[] | FlatRwandaRecord[] {
   if (Array.isArray(dataset)) {
-    return dataset;
+    return dataset as RawNestedNode[] | FlatRwandaRecord[];
   }
 
   if (isProvincesWrapper(dataset)) {

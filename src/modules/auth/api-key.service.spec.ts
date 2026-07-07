@@ -109,21 +109,22 @@ describe('ApiKeyService', () => {
       };
 
       apiKeyRepo.findOne.mockResolvedValue(null);
-      apiKeyRepo.create.mockImplementation(
-        (payload) => payload as ApiKeyEntity,
-      );
-      apiKeyRepo.save.mockImplementation(async (entity) => ({
-        ...(entity as ApiKeyEntity),
+      apiKeyRepo.create.mockImplementation((payload: ApiKeyEntity) => payload);
+      apiKeyRepo.save.mockImplementation((entity: ApiKeyEntity) => ({
+        ...entity,
         id: 'new-key-id',
         createdAt: new Date(),
       }));
 
       const result = await service.create(owner, dto);
 
+      const saveSpy = jest.fn();
+      apiKeyRepo.save.mockImplementation(saveSpy);
+
       expect(result.rawToken).toMatch(/^kp_test_/);
       expect(result.id).toBe('new-key-id');
       expect(result.name).toBe('CI Key');
-      expect(apiKeyRepo.save).toHaveBeenCalled();
+      expect(saveSpy).toHaveBeenCalled();
     });
 
     it('should reject past expiration dates', async () => {
@@ -154,9 +155,7 @@ describe('ApiKeyService', () => {
       };
 
       apiKeyRepo.findOne.mockResolvedValue(target);
-      apiKeyRepo.save.mockImplementation(
-        async (entity) => entity as ApiKeyEntity,
-      );
+      apiKeyRepo.save.mockImplementation((entity: ApiKeyEntity) => entity);
 
       const result = await service.revoke(owner, 'target-id');
 
@@ -192,7 +191,7 @@ describe('ApiKeyService', () => {
       const result = await service.listByDeveloper('Test Developer');
 
       expect(result).toHaveLength(1);
-      expect(result[0].keyPrefix).toBe('kp_test_owner');
+      expect(result[0]).toHaveProperty('keyPrefix', 'kp_test_owner');
       expect(result[0]).not.toHaveProperty('hashedKey');
       expect(result[0]).not.toHaveProperty('rawToken');
     });

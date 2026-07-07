@@ -41,9 +41,18 @@ export class ApiKeyGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<{
+      headers: Record<string, string | string[] | undefined>;
+      member?: JwtPayload;
+      developer?: ApiKeyEntity;
+      route?: { path: string };
+      url: string;
+      method: string;
+    }>();
     const authHeader = request.headers['authorization'];
-    const rawToken = extractBearerToken(authHeader);
+    const rawToken = extractBearerToken(
+      typeof authHeader === 'string' ? authHeader : authHeader?.[0],
+    );
 
     if (!rawToken) {
       throw new UnauthorizedException(
@@ -62,7 +71,13 @@ export class ApiKeyGuard implements CanActivate {
     context: ExecutionContext,
     rawToken: string,
   ): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<{
+      developer?: ApiKeyEntity;
+      member?: JwtPayload;
+      route?: { path: string };
+      url: string;
+      method: string;
+    }>();
     const hashedToken = crypto
       .createHash('sha256')
       .update(rawToken)
@@ -85,7 +100,13 @@ export class ApiKeyGuard implements CanActivate {
     context: ExecutionContext,
     rawToken: string,
   ): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<{
+      developer?: ApiKeyEntity;
+      member?: JwtPayload;
+      route?: { path: string };
+      url: string;
+      method: string;
+    }>();
 
     let payload: JwtPayload;
     try {

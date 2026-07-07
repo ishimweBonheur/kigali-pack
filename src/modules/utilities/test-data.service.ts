@@ -61,7 +61,7 @@ export class TestDataService {
     return `1${birthYear}${genderDigit}${serial}${checksum}`;
   }
 
-  async randomCitizen() {
+  randomCitizen() {
     const gender = this.randomItem([...GENDERS]);
     const birthYear = this.randomInt(1985, 2004);
     const nationalId = this.generateNationalId();

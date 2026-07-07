@@ -35,7 +35,7 @@ import { ApiKeyService } from './api-key.service';
 import { MailService } from '../../common/mail/mail.service';
 
 const ACCESS_TOKEN_TTL_SECONDS = 900;
-const REFRESH_TOKEN_TTL_DAYS = 7;
+const REFRESH_TOKEN_TTL_HOURS = 10;
 const PASSWORD_RESET_TTL_HOURS = 1;
 const EMAIL_VERIFICATION_TTL_MINUTES = 20;
 
@@ -183,6 +183,8 @@ export class AuthService {
     const tokens = await this.issueTokenPair(
       stored.member,
       stored.member.organization,
+      undefined,
+      stored.expiresAt,
     );
 
     return {
@@ -412,6 +414,7 @@ export class AuthService {
     member: OrganizationMemberEntity,
     org: OrganizationEntity,
     manager?: DataSource['manager'],
+    refreshExpiresAt?: Date,
   ) {
     const payload: JwtPayload = {
       sub: member.id,
@@ -429,8 +432,10 @@ export class AuthService {
       ? manager.getRepository(RefreshTokenEntity)
       : this.refreshTokenRepo;
 
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_TTL_DAYS);
+    const expiresAt = refreshExpiresAt ?? new Date();
+    if (!refreshExpiresAt) {
+      expiresAt.setHours(expiresAt.getHours() + REFRESH_TOKEN_TTL_HOURS);
+    }
 
     await refreshRepo.save(
       refreshRepo.create({

@@ -25,10 +25,7 @@ function maskScalar(value: unknown): unknown {
   return value;
 }
 
-export function redactPiiFromObject(
-  input: unknown,
-  depth = 0,
-): unknown {
+export function redactPiiFromObject(input: unknown, depth = 0): unknown {
   if (input === null || input === undefined) {
     return input;
   }

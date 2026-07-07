@@ -93,7 +93,9 @@ export class AdminController {
 
   @Get('telemetry/live-stream')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Live telemetry audit stream (metadata footprints)' })
+  @ApiOperation({
+    summary: 'Live telemetry audit stream (metadata footprints)',
+  })
   telemetryLiveStream(@Query() query: AdminTelemetryQueryDto) {
     return this.adminService.getTelemetryLiveStream(query);
   }

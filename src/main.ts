@@ -18,7 +18,9 @@ async function bootstrap() {
 
   const apiVersion = process.env.API_VERSION ?? 'v1';
 
-  const expressApp = app.getHttpAdapter().getInstance();
+  const expressApp = app.getHttpAdapter().getInstance() as {
+    set: (key: string, value: unknown) => void;
+  };
   expressApp.set('trust proxy', 1);
   app.enableShutdownHooks();
   app.use(helmet());
@@ -144,4 +146,4 @@ async function bootstrap() {
   );
 }
 
-bootstrap();
+void bootstrap();

@@ -19,8 +19,10 @@ export class LocationsCacheInterceptor implements NestInterceptor {
     context: ExecutionContext,
     next: CallHandler,
   ): Promise<Observable<unknown>> {
-    const cached = await this.cacheService.get(CACHE_KEY);
-    const response = context.switchToHttp().getResponse();
+    const cached = await this.cacheService.get<unknown>(CACHE_KEY);
+    const response = context
+      .switchToHttp()
+      .getResponse<{ setHeader: (name: string, value: string) => void }>();
 
     if (cached !== null) {
       response.setHeader('X-Cache', 'HIT');
@@ -29,8 +31,8 @@ export class LocationsCacheInterceptor implements NestInterceptor {
 
     response.setHeader('X-Cache', 'MISS');
     return next.handle().pipe(
-      tap(async (body) => {
-        await this.cacheService.set(CACHE_KEY, body, TTL_SECONDS);
+      tap((body) => {
+        void this.cacheService.set(CACHE_KEY, body, TTL_SECONDS);
       }),
     );
   }

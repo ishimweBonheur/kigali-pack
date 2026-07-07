@@ -59,7 +59,7 @@ export class LocationsService {
   ): Promise<Record<string, unknown>> {
     const cleanTokens = rawAddress
       .toLowerCase()
-      .replace(/[\.,-\/#!$%\^&\*;:{}=\-_`~()]/g, ' ')
+      .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, ' ')
       .split(/\s+/)
       .filter((token) => token.length > 2);
 
