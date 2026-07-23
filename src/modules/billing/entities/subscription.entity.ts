@@ -13,7 +13,10 @@ import { PlanEntity } from './plan.entity';
 import { InvoiceEntity } from './invoice.entity';
 
 export enum SubscriptionStatus {
+  PENDING = 'PENDING',
   ACTIVE = 'ACTIVE',
+  REJECTED = 'REJECTED',
+  EXPIRED = 'EXPIRED',
   CANCELLED = 'CANCELLED',
   PAST_DUE = 'PAST_DUE',
 }

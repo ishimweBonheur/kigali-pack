@@ -58,7 +58,7 @@ import { AnalyticsController } from './modules/analytics/analytics.controller';
 
 import { WebhookController } from './modules/webhooks/webhook.controller';
 
-import { BillingController } from './modules/billing/billing.controller';
+import { BillingModule } from './modules/billing/billing.module';
 
 import { OrganizationController } from './modules/organizations/organization.controller';
 
@@ -68,9 +68,7 @@ import { PhoneController } from './modules/utilities/phone.controller';
 
 import { TestDataController } from './modules/utilities/test-data.controller';
 
-import { ApiKeyService } from './modules/auth/api-key.service';
-
-import { AuthService } from './modules/auth/auth.service';
+import { AuthModule } from './modules/auth/auth.module';
 
 import { ApiKeyGuard } from './common/guards/api-key.guard';
 
@@ -80,7 +78,7 @@ import { JwtAuthGuard, RolesGuard } from './common/guards/jwt-auth.guard';
 
 import { RedisModule } from './common/redis/redis.module';
 
-import { RateLimitService } from './common/rate-limit/rate-limit.service';
+import { RateLimitModule } from './common/rate-limit/rate-limit.module';
 
 import { UsageMeteringService } from './modules/analytics/usage-metering.service';
 
@@ -95,8 +93,6 @@ import {
 } from './modules/webhooks/webhook.service';
 
 import { WebhookDeliveryProcessor } from './modules/webhooks/webhook-delivery.processor';
-
-import { BillingService } from './modules/billing/billing.service';
 
 import { OrganizationService } from './modules/organizations/organization.service';
 
@@ -173,6 +169,10 @@ const ENTITIES = [
 
     RedisModule,
 
+    RateLimitModule,
+
+    AuthModule,
+
     JwtModule.register({
       global: true,
 
@@ -222,6 +222,7 @@ const ENTITIES = [
 
     TypeOrmModule.forFeature(ENTITIES),
 
+    BillingModule,
     AdminModule,
 
     HttpModule,
@@ -248,8 +249,6 @@ const ENTITIES = [
 
     WebhookController,
 
-    BillingController,
-
     OrganizationController,
 
     PhoneController,
@@ -258,13 +257,7 @@ const ENTITIES = [
   ],
 
   providers: [
-    ApiKeyService,
-
-    AuthService,
-
     ApiKeyGuard,
-
-    RateLimitService,
 
     TierThrottlerGuard,
 
@@ -277,8 +270,6 @@ const ENTITIES = [
     WebhookService,
 
     WebhookDeliveryProcessor,
-
-    BillingService,
 
     OrganizationService,
 

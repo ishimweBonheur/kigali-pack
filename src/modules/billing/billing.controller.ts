@@ -33,7 +33,6 @@ import {
   ApiErrorResponseDto,
   ApiSuccessResponseDto,
 } from '../../common/dto/api-response.dto';
-
 interface JwtRequest {
   member: JwtPayload;
 }

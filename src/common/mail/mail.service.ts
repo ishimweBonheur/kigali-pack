@@ -96,7 +96,7 @@ This link expires in ${expiresMinutes} minutes.
 
 Need help? ${supportEmail}`;
 
-    return this.sendMail({
+    return this.sendMailInternal({
       to: input.to,
       subject: 'Verify your Kigali-Pack account',
       html,
@@ -104,7 +104,7 @@ Need help? ${supportEmail}`;
     });
   }
 
-  private async sendMail(options: {
+  async sendMailInternal(options: {
     to: string;
     subject: string;
     html: string;
